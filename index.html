@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Solicitud de apoyo · Oferta Ambulatoria HPM</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&display=swap">
+<style>
+:root{--bg:#f4f6fb;--surface:#fff;--line:#dfe3ec;--fg:#1a2230;--muted:#5b6678;--faint:#8a93a4;--accent:#0102AF;--accent-soft:#e6e8fb;--danger:#c0392b;--ok:#2E7D32;--ok-soft:#e1f0e2;--warn-soft:#fdf1dc;--r:12px;--r-sm:8px;--shadow:0 1px 2px rgba(20,30,60,.06),0 6px 18px rgba(20,30,60,.07);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--surface:#161c2b;--line:#2b344a;--fg:#e7ebf4;--muted:#9aa5ba;--faint:#6c7689;--accent:#8b93ff;--accent-soft:#1d2550;--danger:#ff8a7a;--ok:#5bbf63;--ok-soft:#173222;--warn-soft:#3a2d12;color-scheme:dark}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+h1,h2{font-family:"Archivo",-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;text-wrap:balance}
+header{background:var(--accent);color:#fff;padding-top:max(14px,env(safe-area-inset-top,0px));padding-bottom:14px}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header h1{font-size:20px}header p{margin:2px 0 0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.85}
+main{padding-block:18px 40px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:18px}
+.card+.card{margin-top:14px}
+h2{font-size:18px;margin-bottom:6px}
+p.lead{margin:0 0 14px;color:var(--muted)}
+.opts{display:grid;gap:10px}
+button,input,select,textarea{font:inherit}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 16px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:600;cursor:pointer;width:100%}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.sm{min-height:36px;width:auto;padding:6px 12px;font-size:14px}
+.sep{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:13px;margin:4px 0}
+.sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--line)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.full{grid-column:1/-1}
+@media (max-width:560px){.grid{grid-template-columns:1fr}}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+input,select,textarea{width:100%;min-width:0;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font-size:16px;-webkit-appearance:none;appearance:none}
+textarea{min-height:84px;resize:vertical}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
+input[type=date],input[type=time]{min-height:46px;display:block;max-width:100%;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.who{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent-soft);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:14px;font-size:14px}
+.who b{overflow-wrap:anywhere}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0}
+.msg{border-radius:var(--r-sm);padding:10px 12px;font-size:14px;margin-top:12px}
+.msg.err{background:var(--warn-soft);border:1px solid var(--danger);color:var(--fg)}
+.msg.hint{background:var(--warn-soft)}
+.code{font-family:"Archivo",sans-serif;font-size:30px;letter-spacing:.08em;font-weight:700;color:var(--accent);margin:6px 0}
+.ok{background:var(--ok-soft);border:1px solid var(--ok);border-radius:var(--r);padding:16px}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+dl{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>Solicitud de apoyo</h1><p>Oferta Ambulatoria · Hospital Puerto Montt</p></div></header>
+<main class="wrap" id="app" aria-live="polite"></main>
+
+<script type="module">
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check.js";
+import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const CATALOGO_BASE = {"SERVICIOS":["SERVICIO ANATOMÍA PATOLÓGICA","SERVICIO ANESTESIOLOGÍA","SERVICIO ASISTENCIA NUTRICIONAL Y NUTRIOLOGÍA","SERVICIO CARDIOLOGÍA","SERVICIO CIRUGÍA ADULTO","SERVICIO CIRUGÍA PEDIÁTRICA","SERVICIO CONSULTA ESPECIALIDADES MÉDICAS","SERVICIO CONSULTA ESPECIALIDADES ODONTOLOGICAS","SERVICIO CUIDADOS PALIATIVOS","SERVICIO DERMATOLOGÍA E ITS","SERVICIO DIÁLISIS Y NEFROLOGÍA","SERVICIO GINECOLOGÍA Y OBSTETRICIA","SERVICIO HEMATO-ONCOLOGÍA ADULTO","SERVICIO HEMATO-ONCOLOGÍA PEDIÁTRICA","SERVICIO IMAGENOLOGÍA","SERVICIO INFECTOLOGIA Y CONTROL DE AB","SERVICIO MAXILO-FACIAL","SERVICIO MEDICINA FISICA Y REHABILITACIÓN","SERVICIO MEDICINA INTERNA","SERVICIO NEONATOLOGÍA","SERVICIO NEUROCIRUGÍA","SERVICIO NEUROLOGIA ADULTO","SERVICIO NEUROLOGIA INFANTIL","SERVICIO OFTALMOLOGÍA","SERVICIO ONCOLOGIA ADULTO","SERVICIO OTORRINOLARINGOLOGÍA","SERVICIO PEDIATRÍA","SERVICIO SALUD MENTAL DEL ADULTO","SERVICIO SALUD MENTAL INFANTO JUVENIL","SERVICIO TRAUMATOLOGÍA ADULTO","SERVICIO TRAUMATOLOGÍA PEDIÁTRICA","SERVICIO UROLOGÍA"],"ESP_BY_SERV":{"SERVICIO ANATOMÍA PATOLÓGICA":["ANATOMIA PATOLOGICA"],"SERVICIO ANESTESIOLOGÍA":["ANESTESIOLOGIA"],"SERVICIO ASISTENCIA NUTRICIONAL Y NUTRIOLOGÍA":["NUTRIOLOGO","NUTRIOLOGO PEDIATRICO"],"SERVICIO CARDIOLOGÍA":["CARDIOLOGIA"],"SERVICIO CIRUGÍA ADULTO":["CIRUGIA DE TORAX","CIRUGIA GENERAL","CIRUGIA PLASTICA Y REPARADORA","CIRUGIA VASCULAR PERIFERICA","COLOPROCTOLOGIA"],"SERVICIO CIRUGÍA PEDIÁTRICA":["CIRUGIA PEDIATRICA","CIRUGIA PLASTICA Y REPARADORA PEDIATRICA"],"SERVICIO CONSULTA ESPECIALIDADES MÉDICAS":["PROCEDIMIENTO"],"SERVICIO CONSULTA ESPECIALIDADES ODONTOLOGICAS":["CIRUGIA Y TRAUMATOLOGIA BUCO MAXILOFACIAL","ENDODONCIA","IMPLANTOLOGIA BUCO MAXILOFACIAL","ODONTOPEDIATRIA","ORTODONCIA Y ORTOPEDIA DENTO MAXILO FACIAL","PATOLOGIA ORAL","PERIODONCIA","REHABILITACION ORAL","REHABILITACION ORAL PROTESIS FIJA","TRASTORNOS TEMPOROMANDIBULARES Y DOLOR OROFACIAL"],"SERVICIO CUIDADOS PALIATIVOS":["MEDICINA FAMILIAR"],"SERVICIO DERMATOLOGÍA E ITS":["DERMATOLOGIA","ITS"],"SERVICIO DIÁLISIS Y NEFROLOGÍA":["NEFROLOGIA ADULTO"],"SERVICIO GINECOLOGÍA Y OBSTETRICIA":["GINECOLOGIA","GINECOLOGIA PEDIATRICA Y DE LA ADOLESCENCIA","OBSTETRICIA"],"SERVICIO HEMATO-ONCOLOGÍA ADULTO":["HEMATOLOGIA"],"SERVICIO HEMATO-ONCOLOGÍA PEDIÁTRICA":["HEMATO ONCOLOGIA PEDIATRICA"],"SERVICIO IMAGENOLOGÍA":["IMAGENOLOGIA","MEDICINA NUCLEAR"],"SERVICIO INFECTOLOGIA Y CONTROL DE AB":["INFECTOLOGIA"],"SERVICIO MAXILO-FACIAL":["CIRUGIA DE CABEZA CUELLO Y MAXILOFACIAL"],"SERVICIO MEDICINA FISICA Y REHABILITACIÓN":["MEDICINA FISICA Y REHABILITACION"],"SERVICIO MEDICINA INTERNA":["DIABETOLOGIA","ENDOCRINOLOGIA ADULTO","ENFERMEDADES RESPIRATORIAS DEL ADULTO","GASTROENTEROLOGIA ADULTO","GERIATRIA","INMUNOLOGIA","MEDICINA INTERNA","REUMATOLOGIA"],"SERVICIO NEONATOLOGÍA":["NEONATOLOGIA"],"SERVICIO NEUROCIRUGÍA":["NEUROCIRUGIA"],"SERVICIO NEUROLOGIA ADULTO":["NEUROLOGIA ADULTO"],"SERVICIO NEUROLOGIA INFANTIL":["GENETICA CLINICA","NEUROLOGIA PEDIATRICA"],"SERVICIO OFTALMOLOGÍA":["OFTALMOLOGIA"],"SERVICIO ONCOLOGIA ADULTO":["ONCOLOGIA MEDICA"],"SERVICIO OTORRINOLARINGOLOGÍA":["OTORRINOLARINGOLOGIA"],"SERVICIO PEDIATRÍA":["CARDIOLOGIA PEDIATRICA","ENDOCRINOLOGIA PEDIATRICA","ENFERMEDADES RESPIRATORIAS PEDIATRICAS","GASTROENTEROLOGIA PEDIATRICA","INFECTOLOGIA PEDIATRICA","NEFROLOGIA PEDIATRICO","PEDIATRIA","REUMATOLOGIA PEDIATRICA"],"SERVICIO SALUD MENTAL DEL ADULTO":["PSIQUIATRIA ADULTO"],"SERVICIO SALUD MENTAL INFANTO JUVENIL":["PSIQUIATRIA PEDIATRICA Y DE LA ADOLESCENCIA"],"SERVICIO TRAUMATOLOGÍA ADULTO":["TRAUMATOLOGIA Y ORTOPEDIA"],"SERVICIO TRAUMATOLOGÍA PEDIÁTRICA":["TRAUMATOLOGIA Y ORTOPEDIA PEDIATRICA"],"SERVICIO UROLOGÍA":["UROLOGIA ADULTO","UROLOGIA PEDIATRICA"]}};
+const MODAL = ["Presencial","Remoto","Mixto"], PRIOR = ["Alta","Media","Baja"];
+const app$ = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const enApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|GSA\/|Outlook|Teams|MicroMessenger|; wv\)/i.test(navigator.userAgent);
+
+let fb = null, auth = null, db = null, cat = CATALOGO_BASE;
+const S = { step: "id", user: null, origen: "", nombre: "", correo: "", busy: false, err: "", codigo: "", resumen: null, v: {} };
+
+function init() {
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "REEMPLAZAR") return false;
+  fb = initializeApp(firebaseConfig);
+  if (RECAPTCHA_SITE_KEY) { try { initializeAppCheck(fb, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true }); } catch (e) {} }
+  auth = getAuth(fb);
+  // Si la red del hospital bloquea el método normal, cambia solo a long-polling.
+  db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
+  return true;
+}
+
+async function cargarCatalogo() {
+  try {
+    const t = new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 4000));
+    const snap = await Promise.race([getDoc(doc(db, "config", "catalogo")), t]);
+    if (snap.exists()) { const d = snap.data(); if (Array.isArray(d.SERVICIOS) && d.ESP_BY_SERV) cat = { SERVICIOS: d.SERVICIOS, ESP_BY_SERV: d.ESP_BY_SERV }; }
+  } catch (e) { /* se usa el catálogo incluido */ }
+}
+
+const ERR = {
+  "auth/popup-blocked": "Su navegador bloqueó la ventana de ingreso. Pruebe \"Continuar sin cuenta\" o abra este enlace en Safari o Chrome.",
+  "auth/popup-closed-by-user": "Se cerró la ventana de ingreso. Puede intentarlo de nuevo o continuar sin cuenta.",
+  "auth/cancelled-popup-request": "Se cerró la ventana de ingreso. Puede intentarlo de nuevo o continuar sin cuenta.",
+  "auth/network-request-failed": "Sin conexión. Revise su internet e inténtelo de nuevo.",
+  "auth/operation-not-supported-in-this-environment": "Este navegador no permite el ingreso con cuenta. Use \"Continuar sin cuenta\" o abra el enlace en Safari o Chrome.",
+  "auth/unauthorized-domain": "Este sitio aún no está autorizado para ingresar con cuenta. Use \"Continuar sin cuenta\".",
+  "auth/admin-restricted-operation": "El ingreso sin cuenta no está habilitado todavía. Avise al equipo de gestión."
+};
+const errMsg = e => ERR[e && e.code] || "No se pudo completar el ingreso. Puede continuar sin cuenta.";
+
+async function entrar(tipo) {
+  S.busy = true; S.err = ""; render();
+  try {
+    let cred = null;
+    if (tipo === "google") { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" }); cred = await signInWithPopup(auth, p); }
+    else if (tipo === "microsoft") { const p = new OAuthProvider("microsoft.com"); p.setCustomParameters({ prompt: "select_account" }); cred = await signInWithPopup(auth, p); }
+    else { cred = await signInAnonymously(auth); }
+    S.user = cred.user; S.origen = tipo;
+    S.nombre = tipo === "manual" ? "" : (cred.user.displayName || "");
+    S.correo = tipo === "manual" ? "" : (cred.user.email || "");
+    S.v = { solicitante: S.nombre, contacto: S.correo, prioridad: "Media", modalidad: "Presencial", espacio: "No" };
+    S.step = "form";
+  } catch (e) { S.err = errMsg(e); }
+  S.busy = false; render();
+}
+
+function hoyISO() { const d = new Date(), p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+function nuevoCodigo() { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const b = new Uint8Array(8); crypto.getRandomValues(b); return [...b].map(x => A[x % A.length]).join(""); }
+
+function payload() {
+  const v = S.v, o = {
+    tipo: "Personalizada", estado: "Solicitada",
+    servicio: v.servicio, especialidad: v.especialidad, tema: v.tema.trim(), solicitante: v.solicitante.trim(),
+    fechaPreferida: v.fechaPreferida, horaPreferida: v.horaPreferida,
+    prioridad: v.prioridad, modalidad: v.modalidad, espacio: v.espacio,
+    createdAt: serverTimestamp(), autorUid: S.user.uid, origen: S.origen
+  };
+  for (const k of ["equipo", "contacto", "lugar", "observacion", "participantes"]) { const x = (v[k] || "").trim(); if (x) o[k] = x; }
+  return o;
+}
+
+async function enviar() {
+  const v = S.v; S.err = "";
+  const falta = ["servicio","especialidad","tema","solicitante","fechaPreferida","horaPreferida"].filter(k => !(v[k] || "").trim());
+  if (falta.length) { S.err = "Complete los campos obligatorios (*)."; render(); return; }
+  if (v.solicitante.trim().length < 3 || v.tema.trim().length < 3) { S.err = "El nombre y el tema deben tener al menos 3 caracteres."; render(); return; }
+  if (v.web) { S.step = "done"; S.codigo = nuevoCodigo(); S.resumen = v; render(); return; } // trampa para bots
+  try { const t = +localStorage.getItem("capLast"); if (t && Date.now() - t < 15000) { S.err = "Espere unos segundos antes de enviar otra solicitud."; render(); return; } } catch (e) {}
+  S.busy = true; render();
+  try {
+    let ok = false, ultimo = null;
+    for (let i = 0; i < 3 && !ok; i++) {
+      const cod = nuevoCodigo();
+      try { await setDoc(doc(db, "solicitudes", cod), payload()); S.codigo = cod; ok = true; }
+      catch (e) { ultimo = e; if (!(e && e.code === "permission-denied")) break; }
+    }
+    if (!ok) throw ultimo;
+    try { localStorage.setItem("capLast", String(Date.now())); } catch (e) {}
+    S.resumen = { ...v }; S.step = "done";
+  } catch (e) {
+    S.err = (e && e.code === "permission-denied")
+      ? "No pudimos registrar su solicitud. Revise que los datos estén completos e inténtelo de nuevo; si persiste, avise al equipo de gestión."
+      : "No pudimos enviar su solicitud (revise su conexión). No se perdió lo que escribió: puede intentarlo de nuevo.";
+  }
+  S.busy = false; render();
+}
+
+function opcs(arr, sel, vacio) { return `<option value="">${esc(vacio)}</option>` + arr.map(x => `<option value="${esc(x)}"${x === sel ? " selected" : ""}>${esc(x)}</option>`).join(""); }
+
+function render() {
+  if (!fb) { app$.innerHTML = `<div class="card"><h2>Falta configurar</h2><p class="lead">Abra <code>config.js</code> y pegue los datos de Firebase (ver PASOS.md).</p></div>`; return; }
+  if (S.step === "id") {
+    app$.innerHTML = `<div class="card">
+      <h2>Antes de comenzar</h2>
+      <p class="lead">Indique cómo desea identificarse. Es solo para que el equipo sepa quién escribe; no le damos ni le pedimos ningún permiso adicional.</p>
+      ${enApp ? `<div class="msg hint">Parece que abrió este enlace dentro de otra aplicación (WhatsApp, correo, etc.). Si el ingreso con Google o Microsoft no se abre, use <b>Continuar sin cuenta</b> o abra el enlace en Safari o Chrome.</div>` : ""}
+      <div class="opts" style="margin-top:14px">
+        <button class="btn" data-a="google" ${S.busy ? "disabled" : ""}>Continuar con Google</button>
+        <button class="btn" data-a="microsoft" ${S.busy ? "disabled" : ""}>Continuar con Microsoft</button>
+        <div class="sep">o</div>
+        <button class="btn primary" data-a="manual" ${S.busy ? "disabled" : ""}>Continuar sin cuenta</button>
+      </div>
+      ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
+      <p class="note">Sin cuenta usted escribirá su nombre y especialidad en el formulario.</p>
+    </div>`;
+    app$.querySelectorAll("[data-a]").forEach(b => b.onclick = () => entrar(b.dataset.a));
+    return;
+  }
+  if (S.step === "done") {
+    const r = S.resumen || {};
+    app$.innerHTML = `<div class="ok" role="status">
+      <h2>Recibimos su requerimiento</h2>
+      <p style="margin:6px 0 0">Nos contactaremos con usted para coordinar la instancia de apoyo más adecuada. Guarde este código por si necesita referirse a su solicitud:</p>
+      <div class="code" id="cod">${esc(S.codigo)}</div>
+      <button class="btn sm" id="cp">Copiar código</button>
+      <dl><dt>Tema</dt><dd>${esc(r.tema)}</dd><dt>Especialidad</dt><dd>${esc(r.especialidad)}</dd><dt>Solicitante</dt><dd>${esc(r.solicitante)}</dd><dt>Fecha preferida</dt><dd>${esc(r.fechaPreferida)} ${esc(r.horaPreferida)}</dd></dl>
+      <p class="note">La fecha es referencial: el equipo confirmará o propondrá otra.</p>
+    </div>
+    <p style="margin-top:14px"><button class="btn" id="otra">Enviar otra solicitud</button></p>`;
+    document.getElementById("cp").onclick = async e => { const b = e.target; try { await navigator.clipboard.writeText(S.codigo); b.textContent = "Copiado"; } catch (x) { const r = document.createRange(); r.selectNodeContents(document.getElementById("cod")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selecciónelo y cópielo"; } };
+    document.getElementById("otra").onclick = () => { S.v = { solicitante: S.nombre, contacto: S.correo, prioridad: "Media", modalidad: "Presencial", espacio: "No" }; S.step = "form"; S.err = ""; render(); };
+    return;
+  }
+  const v = S.v, esps = v.servicio ? (cat.ESP_BY_SERV[v.servicio] || []) : [];
+  app$.innerHTML = `<form class="card" id="f" novalidate>
+    <div class="who"><span>${S.origen === "manual" ? "Sin cuenta" : "Ingresó como <b>" + esc(S.correo || S.nombre || "usuario") + "</b>"}</span><button type="button" class="btn sm" id="cambiar">Cambiar</button></div>
+    <h2>Describa su requerimiento</h2>
+    <p class="lead">Puede ser una capacitación, apoyo para resolver dudas o una instancia de retroalimentación. Cuéntenos el detalle en el tema.</p>
+    <div class="grid">
+      <div><label for="servicio">Servicio *</label><select id="servicio">${opcs(cat.SERVICIOS, v.servicio, "— Elija —")}</select></div>
+      <div><label for="especialidad">Especialidad *</label><select id="especialidad" ${v.servicio ? "" : "disabled"}>${opcs(esps, v.especialidad, v.servicio ? "— Elija —" : "Elija el servicio primero")}</select></div>
+      <div class="full"><label for="tema">Tema / objetivo *</label><input id="tema" maxlength="300" autocomplete="off" value="${esc(v.tema)}" placeholder="Ej.: dudas para cargar la oferta y manejar bloqueos"></div>
+      <div><label for="solicitante">Su nombre y apellido *</label><input id="solicitante" maxlength="120" autocomplete="name" value="${esc(v.solicitante)}"></div>
+      <div><label for="contacto">Correo o teléfono de contacto</label><input id="contacto" maxlength="120" autocomplete="email" inputmode="email" value="${esc(v.contacto)}" placeholder="correo@ssdr.gob.cl"></div>
+      <div><label for="fechaPreferida">Fecha preferida *</label><input id="fechaPreferida" type="date" min="${hoyISO()}" value="${esc(v.fechaPreferida)}"></div>
+      <div><label for="horaPreferida">Hora preferida *</label><input id="horaPreferida" type="time" value="${esc(v.horaPreferida)}"></div>
+      <div><label for="participantes">N° de participantes</label><input id="participantes" inputmode="numeric" maxlength="3" value="${esc(v.participantes)}" placeholder="Ej.: 6"></div>
+      <div><label for="modalidad">Modalidad</label><select id="modalidad">${MODAL.map(m => `<option${m === v.modalidad ? " selected" : ""}>${m}</option>`).join("")}</select></div>
+      <div><label for="prioridad">Prioridad</label><select id="prioridad">${PRIOR.map(m => `<option${m === v.prioridad ? " selected" : ""}>${m}</option>`).join("")}</select></div>
+      <div><label for="espacio">¿Cuentan con espacio físico?</label><select id="espacio"><option${v.espacio === "No" ? " selected" : ""}>No</option><option value="Sí"${v.espacio === "Sí" ? " selected" : ""}>Sí</option></select></div>
+      ${v.espacio === "Sí" ? `<div class="full"><label for="lugar">¿Dónde? (sala, box)</label><input id="lugar" maxlength="120" value="${esc(v.lugar)}"></div>` : ""}
+      <div class="full"><label for="observacion">Observación</label><textarea id="observacion" maxlength="1000">${esc(v.observacion)}</textarea></div>
+      <div class="hp" aria-hidden="true"><label for="web">No completar</label><input id="web" tabindex="-1" autocomplete="off"></div>
+    </div>
+    ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
+    <div style="margin-top:16px"><button class="btn primary" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "Enviando…" : "Enviar requerimiento"}</button></div>
+    <p class="note">* Obligatorio. La fecha es referencial; el equipo confirmará o propondrá otra.</p>
+  </form>`;
+  const f = document.getElementById("f");
+  const sync = e => { const t = e.target; if (t.id) S.v[t.id] = t.value; };
+  f.addEventListener("input", sync); f.addEventListener("change", sync);
+  document.getElementById("servicio").addEventListener("change", e => { S.v.servicio = e.target.value; S.v.especialidad = ""; render(); });
+  document.getElementById("espacio").addEventListener("change", e => { S.v.espacio = e.target.value; render(); });
+  document.getElementById("cambiar").onclick = async () => { try { await signOut(auth); } catch (e) {} S.step = "id"; S.err = ""; render(); };
+  f.addEventListener("submit", e => { e.preventDefault(); if (!S.busy) enviar(); });
+}
+
+if (init()) { cargarCatalogo(); }
+render();
+</script>
+</body>
+</html>
