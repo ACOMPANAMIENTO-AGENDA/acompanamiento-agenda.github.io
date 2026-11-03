@@ -18,7 +18,10 @@ const base=(uid)=>({tipo:"Personalizada",estado:"Solicitada",servicio:"SERVICIO 
 async function intento(fn){try{await fn();return "permitido"}catch(e){return (e&&e.code==="permission-denied")?"denegado":"error: "+(e&&e.code||e)}}
 document.getElementById("go").onclick=async()=>{
  const t=document.getElementById("t"),res=document.getElementById("res");t.innerHTML="";res.textContent="Ejecutando…";
- const uid=(await signInAnonymously(auth)).user.uid, id="PRUEBA"+Math.random().toString(36).slice(2,7).toUpperCase();
+ let uid;
+ try{uid=(await Promise.race([signInAnonymously(auth),new Promise((_,r)=>setTimeout(()=>r({code:"timeout (15 s sin respuesta)"}),15000))])).user.uid}
+ catch(e){res.innerHTML=`<span class="mal">No se pudo iniciar sesión anónima.</span><br>Código: <b>${e&&e.code||e}</b><br><small>${e&&e.message||""}</small>`;return}
+ const id="PRUEBA"+Math.random().toString(36).slice(2,7).toUpperCase();
  const casos=[
   ["Leer el catálogo (público)","permitido",()=>getDoc(doc(db,"config","catalogo"))],
   ["Leer una solicitud","denegado",()=>getDoc(doc(db,"solicitudes","X"))],
