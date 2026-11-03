@@ -9,7 +9,7 @@ table{border-collapse:collapse;width:100%;margin-top:14px}td,th{border-bottom:1p
 <p>Entra como usuario anónimo (como un médico sin cuenta) y prueba qué le permiten y qué le prohíben las reglas. Esta página es temporal: se borra al terminar.</p>
 <button id="go">Ejecutar pruebas</button><div id="res"></div><table id="t"></table>
 <script type="module">
-import { firebaseConfig } from "./config.js";
+import { firebaseConfig } from "./config.js?v=2";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { initializeFirestore, doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";

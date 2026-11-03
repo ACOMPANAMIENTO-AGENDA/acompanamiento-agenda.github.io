@@ -55,7 +55,7 @@ dl{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font
 <main class="wrap" id="app" aria-live="polite"></main>
 
 <script type="module">
-import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check.js";
 import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, OAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
