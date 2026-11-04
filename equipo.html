@@ -60,7 +60,7 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:1
 import { firebaseConfig } from "./config.js?v=2";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { initializeFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { initializeFirestore, doc, getDoc, getDocs, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const ESTADOS = ["Solicitada", "Por confirmar", "Aceptada", "Realizada", "Rechazada"];
 const COLOR = { "Solicitada": "var(--s-sol)", "Por confirmar": "var(--s-con)", "Aceptada": "var(--s-ace)", "Realizada": "var(--s-rea)", "Rechazada": "var(--s-rec)" };
@@ -68,7 +68,8 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
-const S = { user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
+const S = { gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -99,6 +100,13 @@ onAuthStateChanged(auth, async u => {
   S.user = u; S.perfil = null; S.docs = []; S.view = "list"; S.sel = null; S.listo = false; S.err = "";
   if (u) {
     try { const s = await getDoc(doc(db, "equipo", u.uid)); S.perfil = s.exists() ? s.data() : null; } catch (e) { S.perfil = null; }
+    if (S.perfil && S.perfil.rol === "admin") {
+      try {
+        const q = await getDocs(collection(db, "equipo")); const extra = [];
+        q.forEach(x => { const d = x.data(); if (Array.isArray(d.funciones) && d.funciones.includes("gestor") && d.nombre) extra.push(d.nombre); });
+        S.gestores = [...new Set([...GESTORES_BASE, ...extra])];
+      } catch (e) {}
+    }
     if (S.perfil) {
       S.unsub = onSnapshot(query(collection(db, "solicitudes"), orderBy("createdAt", "desc"), limit(300)),
         snap => { S.docs = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.listo = true; if (S.view === "list") render(); },
@@ -200,7 +208,7 @@ function vistaDetalle() {
       <h3 style="font-size:16px">Gestionar</h3>
       <div><label for="fe">Estado</label><select id="fe">${ESTADOS.map(e => `<option${e === f.estado ? " selected" : ""}>${e}</option>`).join("")}</select></div>
       <div><label for="fm">Mensaje para el médico (lo ve al consultar su código)</label><textarea id="fm" maxlength="300" placeholder="Ej.: Le proponemos el jueves 12 a las 10:00. Confirme por correo.">${esc(f.mensaje)}</textarea></div>
-      <div><label for="fg">Gestor responsable</label><input id="fg" maxlength="80" value="${esc(f.gestor)}" autocomplete="off"></div>
+      <div><label for="fg">Gestor responsable</label><select id="fg"><option value="">Sin asignar</option>${[...new Set([...S.gestores, ...(f.gestor ? [f.gestor] : [])])].map(g => `<option${g === f.gestor ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
       <div><label for="fn">Nota interna (el médico no la ve)</label><textarea id="fn" maxlength="500">${esc(f.notaInterna)}</textarea></div>
       <button class="btn primary block" id="gd" ${S.busy ? "disabled" : ""}>${S.busy ? "Guardando…" : "Guardar"}</button>
     </div>` : `<div class="card note">Su rol es de solo lectura.</div>`}
