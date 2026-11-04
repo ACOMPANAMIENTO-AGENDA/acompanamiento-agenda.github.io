@@ -147,7 +147,8 @@ async function enviar() {
     }
     if (!ok) throw ultimo;
     // Documento público mínimo para consultar el estado con el código (sin datos personales). Si falla, no impide el envío.
-    try { await setDoc(doc(db, "seguimiento", S.codigo), { estado: "Solicitada", actualizado: serverTimestamp() }); } catch (e) {}
+    S.segWarn = "";
+    try { await setDoc(doc(db, "seguimiento", S.codigo), { estado: "Solicitada", actualizado: serverTimestamp() }); } catch (e) { S.segWarn = (e && e.code) || String(e); }
     try { localStorage.setItem("capLast", String(Date.now())); } catch (e) {}
     S.resumen = { ...v }; S.step = "done";
   } catch (e) {
@@ -236,6 +237,7 @@ function render() {
       <button class="btn sm" id="cp">Copiar código</button>
       <dl><dt>Tema</dt><dd>${esc(r.tema)}</dd><dt>Especialidad</dt><dd>${esc(r.especialidad)}</dd><dt>Solicitante</dt><dd>${esc(r.solicitante)}</dd><dt>Fecha preferida</dt><dd>${esc(r.fechaPreferida)} ${esc(r.horaPreferida)}</dd></dl>
       <p class="note">La fecha es referencial: el equipo confirmará o propondrá otra.</p>
+      ${S.segWarn ? `<div class="msg err">Aviso técnico: la consulta de estado de este código no quedó registrada (${esc(S.segWarn)}). Su solicitud sí se recibió.</div>` : ""}
     </div>
     <p style="margin-top:14px"><button class="btn" id="otra">Enviar otra solicitud</button></p>
     <p class="note" style="margin-top:14px">Para ver el estado más adelante, vuelva al inicio de este sitio y use «¿Ya envió una solicitud?» con su código.</p>`;
