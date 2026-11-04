@@ -25,7 +25,7 @@ button,input,select,textarea{font:inherit}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.block{display:flex;width:100%}
 .btn.sm{min-height:34px;padding:4px 10px;font-size:14px}
-header .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+header #hdr{display:flex;gap:6px;flex:none}header .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
 .btn:disabled{opacity:.55;cursor:default}
 label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
 input,select,textarea{width:100%;min-width:0;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font-size:16px;-webkit-appearance:none;appearance:none}
@@ -44,6 +44,19 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .item{display:block;width:100%;text-align:left;cursor:pointer}
 .item .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
 .enviada{font-size:13px;color:var(--fg);margin-left:auto;margin-right:8px;text-align:right}.enviada b{font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
+.kpi b{display:block;font-family:"Archivo",sans-serif;font-size:30px;line-height:1.1}.kpi span{font-size:12.5px;color:var(--muted)}
+.kpi.alert b{color:var(--danger)}
+.bar{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:8px;align-items:center;font-size:13.5px;margin:6px 0}
+.bar .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar .t{height:14px;background:var(--accent-soft);border-radius:7px;overflow:hidden}.bar .t i{display:block;height:100%;border-radius:7px;background:var(--accent)}
+.stk{display:flex;height:22px;border-radius:11px;overflow:hidden;background:var(--line)}.stk i{display:block;height:100%}
+.leg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--muted);margin-top:8px}.leg u{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;text-decoration:none}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal .h{font-size:11px;text-align:center;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+.cal button{aspect-ratio:1/1;min-height:44px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;cursor:pointer}
+.cal button.v{visibility:hidden}.cal button.hoy{outline:2px solid var(--accent)}.cal button.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cal button em{font-style:normal;font-size:11px;font-weight:700;border-radius:999px;padding:0 6px;color:#fff;background:var(--s-sol)}
+.cal button.sel em{background:#fff;color:var(--accent)}
 .cod{font-family:"Archivo",sans-serif;font-weight:700;letter-spacing:.06em}
 .badge{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;color:#fff;white-space:nowrap}
 .tema{margin:6px 0 2px;font-weight:600;overflow-wrap:anywhere}
@@ -70,7 +83,7 @@ const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
-const S = { orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const S = { mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -110,7 +123,7 @@ onAuthStateChanged(auth, async u => {
     }
     if (S.perfil) {
       S.unsub = onSnapshot(query(collection(db, "solicitudes"), orderBy("createdAt", "desc"), limit(300)),
-        snap => { S.docs = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.listo = true; if (S.view === "list") render(); },
+        snap => { S.docs = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.listo = true; if (S.view === "list" || S.view === "panel") render(); },
         e => { S.err = "No se pudieron cargar las solicitudes (" + ((e && e.code) || "error") + ")."; S.listo = true; render(); });
     }
   }
@@ -211,7 +224,7 @@ function vistaLista() {
   document.getElementById("sg").onchange = e => { S.fg = e.target.value; render(); };
   document.getElementById("ss").onchange = e => { S.fsv = e.target.value; render(); };
   app$.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.f = b.dataset.f; render(); });
-  app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => { S.sel = S.docs.find(d => d.id === b.dataset.id); S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); });
+  app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
 }
 
 function vistaDetalle() {
@@ -236,7 +249,7 @@ function vistaDetalle() {
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
     ${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
   </div>`;
-  document.getElementById("vol").onclick = () => { S.view = "list"; S.err = ""; S.info = ""; render(); };
+  document.getElementById("vol").onclick = () => { S.view = S.vuelta || "list"; S.err = ""; S.info = ""; render(); };
   if (ed) {
     const bind = (id, k) => document.getElementById(id).addEventListener("input", e => { S.form[k] = e.target.value; });
     bind("fe", "estado"); bind("fm", "mensaje"); bind("fg", "gestor"); bind("fn", "notaInterna");
@@ -245,13 +258,65 @@ function vistaDetalle() {
   }
 }
 
+const abierta = d => d.estado === "Solicitada" || d.estado === "Por confirmar";
+function barras(items, max, color) {
+  return items.map(([n, v]) => `<div class="bar"><span class="n" title="${esc(n)}">${esc(n)}</span><span class="t"><i style="width:${max ? Math.round(v / max * 100) : 0}%;${color ? "background:" + color : ""}"></i></span><b>${v}</b></div>`).join("") || `<p class="note">Sin datos todavía.</p>`;
+}
+function vistaPanel() {
+  const D = S.docs, ab = D.filter(abierta), N = D.length;
+  const sinG = ab.filter(d => !d.gestor).length, viejas = ab.filter(d => dias(d.createdAt) > 7).length;
+  const atend = D.filter(d => d.estado === "Aceptada" || d.estado === "Realizada").length;
+  const med = (() => { const a = ab.map(d => dias(d.createdAt)).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; })();
+  const cub = [["0–2 días", 0, 2], ["3–7 días", 3, 7], ["8–14 días", 8, 14], ["Más de 15 días", 15, 1e9]].map(([n, a, b]) => [n, ab.filter(d => { const x = dias(d.createdAt); return x >= a && x <= b; }).length]);
+  const carga = {}; ab.forEach(d => { const g = d.gestor || "Sin asignar"; carga[g] = (carga[g] || 0) + 1; });
+  const cargaL = Object.entries(carga).sort((a, b) => b[1] - a[1]);
+  const serv = {}; D.forEach(d => { if (d.servicio) serv[d.servicio] = (serv[d.servicio] || 0) + 1; });
+  const servL = Object.entries(serv).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const cnt = e => D.filter(d => d.estado === e).length;
+  // calendario
+  const y = S.mes.getFullYear(), m = S.mes.getMonth(), prim = (new Date(y, m, 1).getDay() + 6) % 7, nd = new Date(y, m + 1, 0).getDate();
+  const porDia = {}; D.filter(d => d.estado !== "Rechazada" && d.fechaPreferida).forEach(d => (porDia[d.fechaPreferida] = porDia[d.fechaPreferida] || []).push(d));
+  const pad = n => String(n).padStart(2, "0"), hoy = new Date(), hoyK = hoy.getFullYear() + "-" + pad(hoy.getMonth() + 1) + "-" + pad(hoy.getDate());
+  let cel = ""; for (let i = 0; i < prim; i++) cel += `<button class="v" tabindex="-1" aria-hidden="true"></button>`;
+  for (let k = 1; k <= nd; k++) { const key = y + "-" + pad(m + 1) + "-" + pad(k), n = (porDia[key] || []).length; cel += `<button data-dia="${key}" class="${key === hoyK ? "hoy " : ""}${S.dia === key ? "sel" : ""}" aria-label="${k}: ${n} solicitudes">${k}${n ? `<em>${n}</em>` : ""}</button>`; }
+  const delDia = S.dia ? (porDia[S.dia] || []).sort((a, b) => (a.horaPreferida || "").localeCompare(b.horaPreferida || "")) : [];
+  const mesTxt = S.mes.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  app$.innerHTML = `<div class="stack">
+    <div class="kpis">
+      <div class="kpi"><b>${ab.length}</b><span>Abiertas (por atender)</span></div>
+      <div class="kpi ${sinG ? "alert" : ""}"><b>${sinG}</b><span>Sin gestor asignado</span></div>
+      <div class="kpi ${viejas ? "alert" : ""}"><b>${viejas}</b><span>Esperan más de 7 días</span></div>
+      <div class="kpi"><b>${med}</b><span>Días de espera (mediana)</span></div>
+      <div class="kpi"><b>${N ? Math.round(atend / N * 100) : 0}%</b><span>Atendidas (aceptada o realizada)</span></div>
+    </div>
+    <div class="card"><h3 style="font-size:16px">Antigüedad de lo abierto</h3><p class="note" style="margin:2px 0 8px">Cuánto llevan esperando las solicitudes que aún no se resuelven.</p>${barras(cub, Math.max(1, ...cub.map(x => x[1])), "var(--s-sol)")}</div>
+    <div class="card"><h3 style="font-size:16px">Estados</h3>
+      <div class="stk" role="img" aria-label="Distribución por estado">${ESTADOS.map(e => cnt(e) ? `<i style="width:${cnt(e) / N * 100}%;background:${COLOR[e]}" title="${e}: ${cnt(e)}"></i>` : "").join("")}</div>
+      <div class="leg">${ESTADOS.map(e => `<span><u style="background:${COLOR[e]}"></u>${e} ${cnt(e)}</span>`).join("")}</div></div>
+    <div class="card"><h3 style="font-size:16px">Carga por gestor (abiertas)</h3>${barras(cargaL, Math.max(1, ...cargaL.map(x => x[1])))}</div>
+    <div class="card"><h3 style="font-size:16px">Servicios que más piden</h3>${barras(servL, Math.max(1, ...servL.map(x => x[1])), "var(--s-rea)")}</div>
+    <div class="card stack">
+      <div class="top" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><h3 style="font-size:16px;text-align:center;flex:1">${esc(mesTxt.charAt(0).toUpperCase() + mesTxt.slice(1))}<small style="display:block;font-weight:400;font-size:12px;color:var(--muted)">fechas preferidas</small></h3><button class="btn sm" id="mn" aria-label="Mes siguiente">›</button></div>
+      <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(x => `<span class="h">${x}</span>`).join("")}${cel}</div>
+      ${S.dia ? `<div><b>${esc(S.dia)}</b> · ${delDia.length} solicitud(es)</div>${delDia.map(d => `<button class="card item" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}</span><span class="badge" style="background:${COLOR[d.estado]}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.horaPreferida)} · ${esc(d.servicio)} · ${esc(d.solicitante)}</div></button>`).join("")}` : `<p class="note" style="margin:0">Toca un día para ver qué se pidió. El número indica cuántas solicitudes (sin contar rechazadas) prefieren esa fecha.</p>`}
+    </div>
+    ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
+  </div>`;
+  document.getElementById("mp").onclick = () => { S.mes = new Date(y, m - 1, 1); S.dia = ""; render(); };
+  document.getElementById("mn").onclick = () => { S.mes = new Date(y, m + 1, 1); S.dia = ""; render(); };
+  app$.querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { S.dia = S.dia === b.dataset.dia ? "" : b.dataset.dia; render(); });
+  app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
+}
+function abrir(id) { S.vuelta = S.view === "panel" ? "panel" : "list"; S.sel = S.docs.find(d => d.id === id); S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); }
 function render() {
-  hdr$.innerHTML = S.user ? `<button class="btn sm" id="sal">Salir</button>` : "";
+  const adm = S.perfil && S.perfil.rol === "admin";
+  hdr$.innerHTML = S.user ? `${adm ? `<button class="btn sm" id="pn">${S.view === "panel" ? "Lista" : "Panel"}</button> ` : ""}<button class="btn sm" id="sal">Salir</button>` : "";
   if (S.user) document.getElementById("sal").onclick = () => signOut(auth);
+  if (adm) document.getElementById("pn").onclick = () => { S.view = S.view === "panel" ? "list" : "panel"; S.err = ""; render(); window.scrollTo(0, 0); };
   if (!S.user) return vistaLogin();
   if (!S.listo && !S.perfil) { app$.innerHTML = `<div class="card note">Verificando acceso…</div>`; return; }
   if (!S.perfil) return vistaSinAcceso();
-  S.view === "detail" && S.sel ? vistaDetalle() : vistaLista();
+  S.view === "detail" && S.sel ? vistaDetalle() : S.view === "panel" && adm ? vistaPanel() : vistaLista();
 }
 render();
 </script>
