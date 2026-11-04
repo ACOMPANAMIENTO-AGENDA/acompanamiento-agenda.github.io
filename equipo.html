@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Equipo · Solicitudes de apoyo HPM</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&display=swap">
+<style>
+:root{--bg:#f4f6fb;--surface:#fff;--line:#dfe3ec;--fg:#1a2230;--muted:#5b6678;--faint:#8a93a4;--accent:#0102AF;--accent-soft:#e6e8fb;--danger:#c0392b;--ok:#2E7D32;--ok-soft:#e1f0e2;--warn-soft:#fdf1dc;--r:12px;--r-sm:8px;--shadow:0 1px 2px rgba(20,30,60,.06),0 6px 18px rgba(20,30,60,.07);
+--s-sol:#C77700;--s-con:#A12B7E;--s-ace:#2E7D32;--s-rea:#2563c4;--s-rec:#8a93a4;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--surface:#161c2b;--line:#2b344a;--fg:#e7ebf4;--muted:#9aa5ba;--faint:#6c7689;--accent:#8b93ff;--accent-soft:#1d2550;--danger:#ff8a7a;--ok:#5bbf63;--ok-soft:#173222;--warn-soft:#3a2d12;--s-sol:#f0a73a;--s-con:#e070b8;--s-ace:#5bbf63;--s-rea:#6fa0ff;--s-rec:#9aa5ba;color-scheme:dark}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:"Archivo",-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;text-wrap:balance}
+header{background:var(--accent);color:#fff;padding-top:max(12px,env(safe-area-inset-top,0px));padding-bottom:12px}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:10px}
+header h1{font-size:18px}header small{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.85}
+main{padding-block:16px 40px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+.card+.card{margin-top:12px}
+button,input,select,textarea{font:inherit}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:600;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.block{display:flex;width:100%}
+.btn.sm{min-height:34px;padding:4px 10px;font-size:14px}
+header .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+.btn:disabled{opacity:.55;cursor:default}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+input,select,textarea{width:100%;min-width:0;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font-size:16px;-webkit-appearance:none;appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
+textarea{min-height:80px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.stack>*+*{margin-top:12px}
+.msg{border-radius:var(--r-sm);padding:10px 12px;font-size:14px;margin-top:12px}
+.msg.err{background:var(--warn-soft);border:1px solid var(--danger)}
+.msg.ok{background:var(--ok-soft);border:1px solid var(--ok)}
+.note{font-size:13px;color:var(--muted)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.row{display:flex;gap:8px}.row>*{min-width:0}
+.item{display:block;width:100%;text-align:left;cursor:pointer}
+.item .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.cod{font-family:"Archivo",sans-serif;font-weight:700;letter-spacing:.06em}
+.badge{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;color:#fff;white-space:nowrap}
+.tema{margin:6px 0 2px;font-weight:600;overflow-wrap:anywhere}
+.meta{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:14px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+.cnt{font-size:13px;color:var(--muted);margin:8px 2px}
+.pre{white-space:pre-wrap}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div><small>Hospital Puerto Montt · Oferta Ambulatoria</small><h1>Solicitudes de apoyo</h1></div><div id="hdr"></div></div></header>
+<main class="wrap" id="app" aria-live="polite"></main>
+<script type="module">
+import { firebaseConfig } from "./config.js?v=2";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const ESTADOS = ["Solicitada", "Por confirmar", "Aceptada", "Realizada", "Rechazada"];
+const COLOR = { "Solicitada": "var(--s-sol)", "Por confirmar": "var(--s-con)", "Aceptada": "var(--s-ace)", "Realizada": "var(--s-rea)", "Rechazada": "var(--s-rec)" };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
+const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
+const S = { user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+
+const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
+const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
+const ERRS = {
+  "auth/invalid-credential": "Correo o contraseña incorrectos.", "auth/wrong-password": "Correo o contraseña incorrectos.",
+  "auth/user-not-found": "Correo o contraseña incorrectos.", "auth/invalid-email": "El correo no es válido.",
+  "auth/too-many-requests": "Demasiados intentos. Espere unos minutos o restablezca su contraseña.",
+  "auth/network-request-failed": "Sin conexión. Revise su internet.",
+  "auth/operation-not-allowed": "El ingreso con correo y contraseña aún no está habilitado en el proyecto.",
+  "auth/user-disabled": "Esta cuenta está deshabilitada."
+};
+const errAuth = e => ERRS[e && e.code] || ("No se pudo ingresar (" + ((e && e.code) || "error") + ").");
+
+async function ingresar(correo, clave) {
+  S.busy = true; S.err = ""; render();
+  try { await signInWithEmailAndPassword(auth, correo.trim(), clave); } catch (e) { S.err = errAuth(e); }
+  S.busy = false; render();
+}
+async function recuperar(correo) {
+  S.err = ""; S.info = "";
+  if (!correo.trim()) { S.err = "Escriba su correo y vuelva a pulsar «Olvidé mi contraseña»."; render(); return; }
+  try { await sendPasswordResetEmail(auth, correo.trim()); } catch (e) { /* no revelar si existe */ }
+  S.info = "Si ese correo tiene cuenta, le enviamos un mensaje para crear una contraseña nueva. Revise también la carpeta de correo no deseado."; render();
+}
+
+onAuthStateChanged(auth, async u => {
+  if (S.unsub) { S.unsub(); S.unsub = null; }
+  S.user = u; S.perfil = null; S.docs = []; S.view = "list"; S.sel = null; S.listo = false; S.err = "";
+  if (u) {
+    try { const s = await getDoc(doc(db, "equipo", u.uid)); S.perfil = s.exists() ? s.data() : null; } catch (e) { S.perfil = null; }
+    if (S.perfil) {
+      S.unsub = onSnapshot(query(collection(db, "solicitudes"), orderBy("createdAt", "desc"), limit(300)),
+        snap => { S.docs = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.listo = true; if (S.view === "list") render(); },
+        e => { S.err = "No se pudieron cargar las solicitudes (" + ((e && e.code) || "error") + ")."; S.listo = true; render(); });
+    }
+  }
+  S.listo = !u || !S.perfil ? true : S.listo;
+  render();
+});
+
+function filtradas() {
+  const q = norm(S.q).trim();
+  return S.docs.filter(d => (S.f === "Todas" || d.estado === S.f) &&
+    (!q || norm([d.id, d.tema, d.solicitante, d.especialidad, d.servicio, d.contacto, d.gestor].join(" ")).includes(q)));
+}
+
+function exportar() {
+  const cols = ["id","estado","tipo","servicio","especialidad","tema","solicitante","contacto","fechaPreferida","horaPreferida","prioridad","modalidad","participantes","lugar","observacion","gestor","notaInterna","mensajePublico","createdAt"];
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ") + '"';
+  const lines = [cols.join(";")].concat(S.docs.map(d => cols.map(c => q(c === "createdAt" ? fecha(d.createdAt) : d[c])).join(";")));
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "solicitudes-" + new Date().toISOString().slice(0, 10) + ".csv";
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+async function guardar() {
+  const d = S.sel, f = S.form; S.err = ""; S.info = "";
+  if (!ESTADOS.includes(f.estado)) { S.err = "Elija un estado."; render(); return; }
+  S.busy = true; render();
+  try {
+    await updateDoc(doc(db, "solicitudes", d.id), { estado: f.estado, gestor: (f.gestor || "").trim(), notaInterna: (f.notaInterna || "").trim(), mensajePublico: (f.mensaje || "").trim(), updatedAt: serverTimestamp(), updatedBy: S.user.uid });
+    let aviso = "";
+    try { await setDoc(doc(db, "seguimiento", d.id), { estado: f.estado, mensaje: (f.mensaje || "").trim(), actualizado: serverTimestamp() }); }
+    catch (e) { aviso = " Pero no se pudo actualizar lo que ve el médico en el seguimiento (" + ((e && e.code) || "error") + ")."; }
+    Object.assign(d, { estado: f.estado, gestor: (f.gestor || "").trim(), notaInterna: (f.notaInterna || "").trim(), mensajePublico: (f.mensaje || "").trim() });
+    S.info = "Guardado." + aviso;
+  } catch (e) { S.err = "No se pudo guardar (" + ((e && e.code) || "error") + ")."; }
+  S.busy = false; render();
+}
+
+function vistaLogin() {
+  app$.innerHTML = `<div class="card stack" style="max-width:420px;margin:16px auto 0">
+    <h2>Ingreso del equipo</h2>
+    <p class="note" style="margin:0">Use el correo y la contraseña que le entregó el administrador.</p>
+    <form id="lf" class="stack" novalidate>
+      <div><label for="em">Correo</label><input id="em" type="email" autocomplete="username" inputmode="email" autocapitalize="off"></div>
+      <div><label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password"></div>
+      <button class="btn primary block" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "Ingresando…" : "Ingresar"}</button>
+      <button class="btn block" type="button" id="rec">Olvidé mi contraseña</button>
+    </form>
+    ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
+    ${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
+  </div>`;
+  const em = document.getElementById("em"), pw = document.getElementById("pw");
+  document.getElementById("lf").addEventListener("submit", e => { e.preventDefault(); if (!S.busy) ingresar(em.value, pw.value); });
+  document.getElementById("rec").onclick = () => recuperar(em.value);
+}
+
+function vistaSinAcceso() {
+  app$.innerHTML = `<div class="card stack" style="max-width:520px;margin:16px auto 0">
+    <h2>Su cuenta aún no tiene acceso</h2>
+    <p style="margin:0">Ingresó como <b>${esc(S.user.email || "")}</b>, pero un administrador todavía no la agregó al equipo. Envíele este identificador:</p>
+    <div class="cod" id="uid" style="font-size:14px;overflow-wrap:anywhere;background:var(--accent-soft);padding:10px;border-radius:8px">${esc(S.user.uid)}</div>
+    <button class="btn" id="cp">Copiar identificador</button>
+  </div>`;
+  document.getElementById("cp").onclick = async e => { try { await navigator.clipboard.writeText(S.user.uid); e.target.textContent = "Copiado"; } catch (x) { const r = document.createRange(); r.selectNodeContents(document.getElementById("uid")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); e.target.textContent = "Selecciónelo y cópielo"; } };
+}
+
+function vistaLista() {
+  const L = filtradas(), cuenta = e => S.docs.filter(d => e === "Todas" || d.estado === e).length;
+  app$.innerHTML = `<div class="stack">
+    <div class="card stack">
+      <div class="row"><input id="bq" type="search" placeholder="Buscar por código, tema, nombre…" value="${esc(S.q)}" autocomplete="off" autocapitalize="characters"><button class="btn" id="exp" title="Descargar todo en CSV">CSV</button></div>
+      <div class="chips" role="group" aria-label="Filtrar por estado">${["Todas", ...ESTADOS].map(e => `<button class="chip" data-f="${esc(e)}" aria-pressed="${S.f === e}">${esc(e)} (${cuenta(e)})</button>`).join("")}</div>
+    </div>
+    ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
+    <div class="cnt">${S.listo ? L.length + " de " + S.docs.length + " solicitudes" : "Cargando…"}</div>
+    ${L.map(d => `<button class="card item" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)} · Enviada: ${esc(fecha(d.createdAt))}</div></button>`).join("")}
+    ${S.listo && !L.length ? `<div class="card note">No hay solicitudes con estos filtros.</div>` : ""}
+  </div>`;
+  const bq = document.getElementById("bq");
+  bq.addEventListener("input", () => { S.q = bq.value; const p = bq.selectionStart; render(); const n = document.getElementById("bq"); n.focus(); try { n.setSelectionRange(p, p); } catch (e) {} });
+  document.getElementById("exp").onclick = exportar;
+  app$.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.f = b.dataset.f; render(); });
+  app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => { S.sel = S.docs.find(d => d.id === b.dataset.id); S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); });
+}
+
+function vistaDetalle() {
+  const d = S.sel, f = S.form, ed = puedeEditar();
+  const campos = [["Tipo", d.tipo], ["Servicio", d.servicio], ["Especialidad", d.especialidad], ["Equipo", d.equipo], ["Solicitante", d.solicitante], ["Contacto", d.contacto], ["Fecha preferida", (d.fechaPreferida || "") + " " + (d.horaPreferida || "")], ["Prioridad", d.prioridad], ["Modalidad", d.modalidad], ["Participantes", d.participantes], ["Espacio físico", d.espacio], ["Lugar", d.lugar], ["Observación", d.observacion], ["Ingreso", d.origen], ["Enviada", fecha(d.createdAt)]].filter(x => x[1] && String(x[1]).trim());
+  app$.innerHTML = `<div class="stack">
+    <button class="btn" id="vol">← Volver a la lista</button>
+    <div class="card stack">
+      <div class="top" style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cod" style="font-size:22px">${esc(d.id)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div>
+      <h3 class="pre" style="font-size:18px">${esc(d.tema)}</h3>
+      <dl>${campos.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="pre">${esc(v)}</dd>`).join("")}</dl>
+    </div>
+    ${ed ? `<div class="card stack">
+      <h3 style="font-size:16px">Gestionar</h3>
+      <div><label for="fe">Estado</label><select id="fe">${ESTADOS.map(e => `<option${e === f.estado ? " selected" : ""}>${e}</option>`).join("")}</select></div>
+      <div><label for="fm">Mensaje para el médico (lo ve al consultar su código)</label><textarea id="fm" maxlength="300" placeholder="Ej.: Le proponemos el jueves 12 a las 10:00. Confirme por correo.">${esc(f.mensaje)}</textarea></div>
+      <div><label for="fg">Gestor responsable</label><input id="fg" maxlength="80" value="${esc(f.gestor)}" autocomplete="off"></div>
+      <div><label for="fn">Nota interna (el médico no la ve)</label><textarea id="fn" maxlength="500">${esc(f.notaInterna)}</textarea></div>
+      <button class="btn primary block" id="gd" ${S.busy ? "disabled" : ""}>${S.busy ? "Guardando…" : "Guardar"}</button>
+    </div>` : `<div class="card note">Su rol es de solo lectura.</div>`}
+    ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
+    ${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
+  </div>`;
+  document.getElementById("vol").onclick = () => { S.view = "list"; S.err = ""; S.info = ""; render(); };
+  if (ed) {
+    const bind = (id, k) => document.getElementById(id).addEventListener("input", e => { S.form[k] = e.target.value; });
+    bind("fe", "estado"); bind("fm", "mensaje"); bind("fg", "gestor"); bind("fn", "notaInterna");
+    document.getElementById("fe").addEventListener("change", e => { S.form.estado = e.target.value; });
+    document.getElementById("gd").onclick = () => { if (!S.busy) guardar(); };
+  }
+}
+
+function render() {
+  hdr$.innerHTML = S.user ? `<button class="btn sm" id="sal">Salir</button>` : "";
+  if (S.user) document.getElementById("sal").onclick = () => signOut(auth);
+  if (!S.user) return vistaLogin();
+  if (!S.listo && !S.perfil) { app$.innerHTML = `<div class="card note">Verificando acceso…</div>`; return; }
+  if (!S.perfil) return vistaSinAcceso();
+  S.view === "detail" && S.sel ? vistaDetalle() : vistaLista();
+}
+render();
+</script>
+</body>
+</html>
