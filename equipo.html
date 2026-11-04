@@ -43,6 +43,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .row{display:flex;gap:8px}.row>*{min-width:0}
 .item{display:block;width:100%;text-align:left;cursor:pointer}
 .item .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.enviada{font-size:13px;color:var(--fg);margin-left:auto;margin-right:8px;text-align:right}.enviada b{font-weight:700}
 .cod{font-family:"Archivo",sans-serif;font-weight:700;letter-spacing:.06em}
 .badge{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;color:#fff;white-space:nowrap}
 .tema{margin:6px 0 2px;font-weight:600;overflow-wrap:anywhere}
@@ -69,7 +70,7 @@ const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
-const S = { gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const S = { orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -117,10 +118,21 @@ onAuthStateChanged(auth, async u => {
   render();
 });
 
+const ms = t => { try { return t && t.toMillis ? t.toMillis() : Date.now(); } catch (e) { return Date.now(); } };
+const dias = t => Math.max(0, Math.floor((Date.now() - ms(t)) / 864e5));
+const hace = t => { const n = dias(t); return n === 0 ? "hoy" : n === 1 ? "hace 1 día" : "hace " + n + " días"; };
+const corta = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"; } catch (e) { return "—"; } };
 function filtradas() {
   const q = norm(S.q).trim();
-  return S.docs.filter(d => (S.f === "Todas" || d.estado === S.f) &&
+  const out = S.docs.filter(d => (S.f === "Todas" || d.estado === S.f) &&
+    (!S.fg || (S.fg === "__sin" ? !d.gestor : d.gestor === S.fg)) &&
+    (!S.fsv || d.servicio === S.fsv) &&
     (!q || norm([d.id, d.tema, d.solicitante, d.especialidad, d.servicio, d.contacto, d.gestor].join(" ")).includes(q)));
+  const pref = d => (d.fechaPreferida || "9999") + " " + (d.horaPreferida || "");
+  out.sort(S.orden === "recientes" ? (a, b) => ms(b.createdAt) - ms(a.createdAt)
+    : S.orden === "preferida" ? (a, b) => pref(a).localeCompare(pref(b))
+    : (a, b) => ms(a.createdAt) - ms(b.createdAt));
+  return out;
 }
 
 function exportar() {
@@ -180,27 +192,36 @@ function vistaLista() {
   app$.innerHTML = `<div class="stack">
     <div class="card stack">
       <div class="row"><input id="bq" type="search" placeholder="Buscar por código, tema, nombre…" value="${esc(S.q)}" autocomplete="off" autocapitalize="characters"><button class="btn" id="exp" title="Descargar todo en CSV">CSV</button></div>
+      <div class="row" style="flex-wrap:wrap">
+        <div style="flex:1 1 160px"><label for="so">Ordenar por</label><select id="so"><option value="antiguas"${S.orden === "antiguas" ? " selected" : ""}>Más antiguas primero</option><option value="recientes"${S.orden === "recientes" ? " selected" : ""}>Más recientes primero</option><option value="preferida"${S.orden === "preferida" ? " selected" : ""}>Fecha preferida (próxima)</option></select></div>
+        <div style="flex:1 1 160px"><label for="sg">Gestor</label><select id="sg"><option value="">Todos</option><option value="__sin"${S.fg === "__sin" ? " selected" : ""}>Sin asignar</option>${S.gestores.map(g => `<option${S.fg === g ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
+        <div style="flex:1 1 160px"><label for="ss">Servicio</label><select id="ss"><option value="">Todos</option>${[...new Set(S.docs.map(d => d.servicio).filter(Boolean))].sort().map(v => `<option${S.fsv === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
+      </div>
       <div class="chips" role="group" aria-label="Filtrar por estado">${["Todas", ...ESTADOS].map(e => `<button class="chip" data-f="${esc(e)}" aria-pressed="${S.f === e}">${esc(e)} (${cuenta(e)})</button>`).join("")}</div>
     </div>
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
     <div class="cnt">${S.listo ? L.length + " de " + S.docs.length + " solicitudes" : "Cargando…"}</div>
-    ${L.map(d => `<button class="card item" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)} · Enviada: ${esc(fecha(d.createdAt))}</div></button>`).join("")}
+    ${L.map(d => `<button class="card item" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}</span><span class="enviada"><b>${esc(corta(d.createdAt))}</b> · ${hace(d.createdAt)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)}${d.gestor ? " · Gestor: " + esc(d.gestor) : " · Sin gestor"}</div></button>`).join("")}
     ${S.listo && !L.length ? `<div class="card note">No hay solicitudes con estos filtros.</div>` : ""}
   </div>`;
   const bq = document.getElementById("bq");
   bq.addEventListener("input", () => { S.q = bq.value; const p = bq.selectionStart; render(); const n = document.getElementById("bq"); n.focus(); try { n.setSelectionRange(p, p); } catch (e) {} });
   document.getElementById("exp").onclick = exportar;
+  document.getElementById("so").onchange = e => { S.orden = e.target.value; render(); };
+  document.getElementById("sg").onchange = e => { S.fg = e.target.value; render(); };
+  document.getElementById("ss").onchange = e => { S.fsv = e.target.value; render(); };
   app$.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.f = b.dataset.f; render(); });
   app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => { S.sel = S.docs.find(d => d.id === b.dataset.id); S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); });
 }
 
 function vistaDetalle() {
   const d = S.sel, f = S.form, ed = puedeEditar();
-  const campos = [["Tipo", d.tipo], ["Servicio", d.servicio], ["Especialidad", d.especialidad], ["Equipo", d.equipo], ["Solicitante", d.solicitante], ["Contacto", d.contacto], ["Fecha preferida", (d.fechaPreferida || "") + " " + (d.horaPreferida || "")], ["Prioridad", d.prioridad], ["Modalidad", d.modalidad], ["Participantes", d.participantes], ["Espacio físico", d.espacio], ["Lugar", d.lugar], ["Observación", d.observacion], ["Ingreso", d.origen], ["Enviada", fecha(d.createdAt)]].filter(x => x[1] && String(x[1]).trim());
+  const campos = [["Tipo", d.tipo], ["Servicio", d.servicio], ["Especialidad", d.especialidad], ["Equipo", d.equipo], ["Solicitante", d.solicitante], ["Contacto", d.contacto], ["Fecha preferida", (d.fechaPreferida || "") + " " + (d.horaPreferida || "")], ["Prioridad", d.prioridad], ["Modalidad", d.modalidad], ["Participantes", d.participantes], ["Espacio físico", d.espacio], ["Lugar", d.lugar], ["Observación", d.observacion], ["Ingreso", d.origen]].filter(x => x[1] && String(x[1]).trim());
   app$.innerHTML = `<div class="stack">
     <button class="btn" id="vol">← Volver a la lista</button>
     <div class="card stack">
       <div class="top" style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cod" style="font-size:22px">${esc(d.id)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div>
+      <div class="enviada" style="margin:0;text-align:left;font-size:15px">Enviada <b>${esc(fecha(d.createdAt))}</b> · ${hace(d.createdAt)}</div>
       <h3 class="pre" style="font-size:18px">${esc(d.tema)}</h3>
       <dl>${campos.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="pre">${esc(v)}</dd>`).join("")}</dl>
     </div>
