@@ -97,7 +97,7 @@ const ERR = {
   "auth/unauthorized-domain": "Este sitio aún no está autorizado para ingresar con cuenta. Use \"Continuar sin cuenta\".",
   "auth/admin-restricted-operation": "El ingreso sin cuenta no está habilitado todavía. Avise al equipo de gestión."
 };
-const errMsg = e => ERR[e && e.code] || "No se pudo completar el ingreso. Puede continuar sin cuenta.";
+const errMsg = e => ERR[e && e.code] || ("No se pudo completar el ingreso (" + ((e && e.code) || "error") + "). Puede continuar sin cuenta.");
 
 async function entrar(tipo) {
   S.busy = true; S.err = ""; render();
@@ -146,6 +146,8 @@ async function enviar() {
       catch (e) { ultimo = e; if (!(e && e.code === "permission-denied")) break; }
     }
     if (!ok) throw ultimo;
+    // Documento público mínimo para consultar el estado con el código (sin datos personales). Si falla, no impide el envío.
+    try { await setDoc(doc(db, "seguimiento", S.codigo), { estado: "Solicitada", actualizado: serverTimestamp() }); } catch (e) {}
     try { localStorage.setItem("capLast", String(Date.now())); } catch (e) {}
     S.resumen = { ...v }; S.step = "done";
   } catch (e) {
@@ -154,6 +156,53 @@ async function enviar() {
       : "No pudimos enviar su solicitud (revise su conexión). No se perdió lo que escribió: puede intentarlo de nuevo.";
   }
   S.busy = false; render();
+}
+
+
+// ---------- Seguimiento por código (no requiere ingreso) ----------
+S.seg = { q: "", busy: false, err: "", res: null };
+const SEG_TXT = {
+  "Solicitada": ["Recibida", "El equipo de gestión la está revisando."],
+  "Por confirmar": ["Hay una propuesta para usted", "Revise el mensaje del equipo y confírmelo por correo."],
+  "Aceptada": ["Confirmada", "La instancia quedó acordada."],
+  "Realizada": ["Realizada", "La instancia ya se llevó a cabo."],
+  "Rechazada": ["No fue posible atenderla", "El equipo se pondrá en contacto si corresponde."]
+};
+async function consultar() {
+  const cod = (S.seg.q || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  S.seg.q = cod; S.seg.err = ""; S.seg.res = null;
+  if (cod.length !== 8) { S.seg.err = "El código tiene 8 caracteres (letras y números)."; render(); return; }
+  S.seg.busy = true; render();
+  try {
+    const t = new Promise((_, r) => setTimeout(() => r({ code: "timeout" }), 10000));
+    const snap = await Promise.race([getDoc(doc(db, "seguimiento", cod)), t]);
+    if (!snap.exists()) S.seg.err = "No encontramos ese código. Revise que esté bien escrito; si lo acaba de enviar, espere unos segundos e inténtelo de nuevo.";
+    else {
+      const d = snap.data(), f = d.actualizado && d.actualizado.toDate ? d.actualizado.toDate() : null;
+      S.seg.res = { estado: d.estado, mensaje: d.mensaje || "", fecha: f ? f.toLocaleString("es-CL", { dateStyle: "long", timeStyle: "short" }) : "" };
+    }
+  } catch (e) {
+    S.seg.err = (e && e.code === "permission-denied") ? "La consulta de estado aún no está disponible. Inténtelo más tarde."
+      : "No pudimos consultar (revise su conexión) e intente de nuevo.";
+  }
+  S.seg.busy = false; render();
+}
+function segHTML() {
+  const r = S.seg.res, tx = r && (SEG_TXT[r.estado] || [r.estado, ""]);
+  return `<div class="card" id="segcard">
+    <h2>¿Ya envió una solicitud?</h2>
+    <p class="lead">Ingrese su código para ver en qué estado está. No necesita ingresar con una cuenta.</p>
+    <div style="display:flex;gap:8px"><input id="cseg" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej.: HD3G3F8A" value="${esc(S.seg.q)}" style="text-transform:uppercase"><button class="btn primary" id="bseg" style="width:auto" ${S.seg.busy ? "disabled" : ""}>${S.seg.busy ? "…" : "Consultar"}</button></div>
+    ${S.seg.err ? `<div class="msg err" role="alert">${esc(S.seg.err)}</div>` : ""}
+    ${r ? `<div class="ok" style="margin-top:12px" role="status"><b>${esc(tx[0])}</b><p style="margin:4px 0 0">${esc(tx[1])}</p>${r.mensaje ? `<p style="margin:8px 0 0"><b>Mensaje del equipo:</b> ${esc(r.mensaje)}</p>` : ""}${r.fecha ? `<p class="note">Última actualización: ${esc(r.fecha)}</p>` : ""}</div>` : ""}
+  </div>`;
+}
+function bindSeg() {
+  const i = document.getElementById("cseg"), b = document.getElementById("bseg");
+  if (!i) return;
+  i.addEventListener("input", () => { S.seg.q = i.value; });
+  i.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); S.seg.q = i.value; consultar(); } });
+  b.onclick = () => { S.seg.q = i.value; consultar(); };
 }
 
 function opcs(arr, sel, vacio) { return `<option value="">${esc(vacio)}</option>` + arr.map(x => `<option value="${esc(x)}"${x === sel ? " selected" : ""}>${esc(x)}</option>`).join(""); }
@@ -173,7 +222,8 @@ function render() {
       </div>
       ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
       <p class="note">Sin cuenta usted escribirá su nombre y especialidad en el formulario.</p>
-    </div>`;
+    </div>` + segHTML();
+    bindSeg();
     app$.querySelectorAll("[data-a]").forEach(b => b.onclick = () => entrar(b.dataset.a));
     return;
   }
@@ -187,7 +237,8 @@ function render() {
       <dl><dt>Tema</dt><dd>${esc(r.tema)}</dd><dt>Especialidad</dt><dd>${esc(r.especialidad)}</dd><dt>Solicitante</dt><dd>${esc(r.solicitante)}</dd><dt>Fecha preferida</dt><dd>${esc(r.fechaPreferida)} ${esc(r.horaPreferida)}</dd></dl>
       <p class="note">La fecha es referencial: el equipo confirmará o propondrá otra.</p>
     </div>
-    <p style="margin-top:14px"><button class="btn" id="otra">Enviar otra solicitud</button></p>`;
+    <p style="margin-top:14px"><button class="btn" id="otra">Enviar otra solicitud</button></p>
+    <p class="note" style="margin-top:14px">Para ver el estado más adelante, vuelva al inicio de este sitio y use «¿Ya envió una solicitud?» con su código.</p>`;
     document.getElementById("cp").onclick = async e => { const b = e.target; try { await navigator.clipboard.writeText(S.codigo); b.textContent = "Copiado"; } catch (x) { const r = document.createRange(); r.selectNodeContents(document.getElementById("cod")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selecciónelo y cópielo"; } };
     document.getElementById("otra").onclick = () => { S.v = { solicitante: S.nombre, contacto: S.correo, prioridad: "Media", modalidad: "Presencial", espacio: "No" }; S.step = "form"; S.err = ""; render(); };
     return;
