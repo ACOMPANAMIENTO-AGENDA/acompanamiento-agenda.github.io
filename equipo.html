@@ -83,7 +83,7 @@ const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
-const S = { rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const S = { corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -221,7 +221,7 @@ async function guardar() {
     let aviso = "";
     try { await setDoc(doc(db, "seguimiento", d.id), { estado: f.estado, mensaje: (f.mensaje || "").trim(), actualizado: serverTimestamp() }); }
     catch (e) { aviso = " Pero no se pudo actualizar lo que ve el médico en el seguimiento (" + ((e && e.code) || "error") + ")."; }
-    Object.assign(d, { estado: f.estado, gestor: (f.gestor || "").trim(), notaInterna: (f.notaInterna || "").trim(), mensajePublico: (f.mensaje || "").trim() });
+    S.corr.tpl = PLANTILLA_POR_ESTADO[f.estado] || S.corr.tpl; Object.assign(d, { estado: f.estado, gestor: (f.gestor || "").trim(), notaInterna: (f.notaInterna || "").trim(), mensajePublico: (f.mensaje || "").trim() });
     S.info = "Guardado." + aviso;
   } catch (e) { S.err = "No se pudo guardar (" + ((e && e.code) || "error") + ")."; }
   S.busy = false; render();
@@ -304,6 +304,39 @@ function vistaLista() {
   app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
 }
 
+const URL_SITIO = "https://acompanamiento-agenda.github.io";
+const PLANTILLAS = {
+  recibida: { n: "Recibida / en revisión", a: c => `Recibimos su solicitud de apoyo · código ${c.cod}`, b: c => `Hemos recibido su solicitud «${c.tema}» y ya está en revisión por nuestro equipo.\n\nEn los próximos días le propondremos una fecha, considerando su preferencia (${c.pref}).\n\nPuede revisar el estado cuando quiera en ${URL_SITIO}, ingresando su código ${c.cod}.` },
+  propuesta: { n: "Propuesta de fecha", a: c => `Propuesta de fecha para su solicitud · código ${c.cod}`, b: c => `Revisamos su solicitud «${c.tema}» y le proponemos realizar la actividad el ${c.fecha || "[fecha y hora propuestas]"}.\n\n¿Le acomoda? Respondiendo este correo nos confirma, o nos indica otra alternativa que le sirva mejor.` },
+  confirmada: { n: "Confirmación", a: c => `Confirmada su actividad · código ${c.cod}`, b: c => `Le confirmamos que su solicitud «${c.tema}» queda agendada para el ${c.fecha || "[fecha y hora]"}${c.lugar ? ", en " + c.lugar : ""}.\n\nSi necesita reprogramar, avísenos con la mayor anticipación posible respondiendo este correo.` },
+  nueva: { n: "Nueva propuesta (cambio de fecha)", a: c => `Nueva propuesta de fecha · código ${c.cod}`, b: c => `Gracias por su solicitud «${c.tema}». Por disponibilidad de nuestro equipo no nos es posible realizarla en la fecha que usted indicó (${c.pref}).\n\nLe proponemos en cambio el ${c.fecha || "[nueva fecha y hora]"}. Si no le acomoda, indíquenos dos o tres alternativas y buscaremos la que mejor calce.` },
+  info: { n: "Necesitamos un dato", a: c => `Necesitamos un dato para avanzar · código ${c.cod}`, b: c => `Para avanzar con su solicitud «${c.tema}» necesitamos que nos indique lo siguiente:\n\n${c.nota || "[dato que falta]"}\n\nCon esa información podremos proponerle una fecha a la brevedad.` },
+  recordatorio: { n: "Recordatorio previo", a: c => `Recordatorio de su actividad · código ${c.cod}`, b: c => `Le recordamos que su actividad «${c.tema}» está agendada para el ${c.fecha || "[fecha y hora]"}${c.lugar ? ", en " + c.lugar : ""}.\n\nSi surge algún imprevisto, avísenos respondiendo este correo.` },
+  cierre: { n: "Cierre y agradecimiento", a: c => `Gracias por participar · código ${c.cod}`, b: c => `Agradecemos su tiempo en la actividad «${c.tema}».\n\nSi necesita nuevo apoyo o refuerzo, puede solicitarlo cuando quiera en ${URL_SITIO}.` },
+  alternativa: { n: "No podremos atender (con alternativa)", a: c => `Sobre su solicitud · código ${c.cod}`, b: c => `Gracias por su solicitud «${c.tema}». En esta oportunidad no podremos atenderla en la modalidad solicitada.\n\n${c.nota ? "Motivo: " + c.nota + "\n\n" : ""}Le ofrecemos como alternativa: ${c.fecha || "[alternativa: otra fecha, formato remoto, material de apoyo]"}.\n\nQuedamos atentos para ayudarle por esa vía o la que estime mejor.` }
+};
+const PLANTILLA_POR_ESTADO = { "Solicitada": "recibida", "Por confirmar": "propuesta", "Aceptada": "confirmada", "Realizada": "cierre", "Rechazada": "alternativa" };
+function correoGenerado() {
+  const d = S.sel, c = S.corr, t = PLANTILLAS[c.tpl], firma = (S.form.gestor || (S.perfil && S.perfil.nombre) || "Equipo de apoyo");
+  const ctx = { cod: d.id, tema: d.tema, pref: ((d.fechaPreferida || "") + " " + (d.horaPreferida || "")).trim() || "sin fecha preferida", fecha: c.fecha.trim(), nota: c.nota.trim(), lugar: d.lugar || "" };
+  return { asunto: t.a(ctx), cuerpo: `Estimado/a ${d.solicitante}:\n\n${t.b(ctx)}\n\nSaludos cordiales,\n${firma}\nApoyo a la Gestión de la Oferta Ambulatoria\nHospital Puerto Montt` };
+}
+function bindCorreo() {
+  const sel = document.getElementById("ct"), fe = document.getElementById("cf"), no = document.getElementById("cn"), cu = document.getElementById("cc"), as = document.getElementById("ca");
+  const gen = () => { const g = correoGenerado(); as.value = g.asunto; cu.value = S.corr.cuerpo = g.cuerpo; };
+  sel.onchange = () => { S.corr.tpl = sel.value; gen(); };
+  fe.oninput = () => { S.corr.fecha = fe.value; gen(); };
+  no.oninput = () => { S.corr.nota = no.value; gen(); };
+  cu.oninput = () => { S.corr.cuerpo = cu.value; };
+  gen();
+  const mail = (d => { const m = String(d.contacto || "").match(/[^\s,;<>]+@[^\s,;<>]+\.[^\s,;<>]+/); return m ? m[0] : ""; })(S.sel);
+  document.getElementById("cm").onclick = () => { location.href = "mailto:" + encodeURIComponent(mail).replace("%40", "@") + "?subject=" + encodeURIComponent(as.value) + "&body=" + encodeURIComponent(cu.value); };
+  document.getElementById("cp2").onclick = async e => {
+    const txt = "Asunto: " + as.value + "\n\n" + cu.value;
+    try { await navigator.clipboard.writeText(txt); e.target.textContent = "Copiado ✓"; } catch (x) { cu.focus(); cu.select(); e.target.textContent = "Selecciónalo y cópialo"; }
+    setTimeout(() => { e.target.textContent = "Copiar correo"; }, 2500);
+  };
+}
 function vistaDetalle() {
   const d = S.sel, f = S.form, ed = puedeEditar();
   const campos = [["Tipo", d.tipo], ["Servicio", d.servicio], ["Especialidad", d.especialidad], ["Equipo", d.equipo], ["Solicitante", d.solicitante], ["Contacto", d.contacto], ["Fecha preferida", (d.fechaPreferida || "") + " " + (d.horaPreferida || "")], ["Prioridad", d.prioridad], ["Modalidad", d.modalidad], ["Participantes", d.participantes], ["Espacio físico", d.espacio], ["Lugar", d.lugar], ["Observación", d.observacion], ["Ingreso", d.origen]].filter(x => x[1] && String(x[1]).trim());
@@ -322,6 +355,17 @@ function vistaDetalle() {
       <div><label for="fg">Gestor responsable</label><select id="fg"><option value="">Sin asignar</option>${[...new Set([...S.gestores, ...(f.gestor ? [f.gestor] : [])])].map(g => `<option${g === f.gestor ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
       <div><label for="fn">Nota interna (el médico no la ve)</label><textarea id="fn" maxlength="500">${esc(f.notaInterna)}</textarea></div>
       <button class="btn primary block" id="gd" ${S.busy ? "disabled" : ""}>${S.busy ? "Guardando…" : "Guardar"}</button>
+    </div>
+    <div class="card stack">
+      <h3 style="font-size:16px">Correo al médico</h3>
+      <p class="note" style="margin:0">Plantillas para copiar o abrir en tu correo. El código va en el asunto, así los mensajes se pueden buscar. Al cambiar la plantilla o los datos, el texto se regenera.</p>
+      <div><label for="ct">Plantilla</label><select id="ct">${Object.entries(PLANTILLAS).map(([k, t]) => `<option value="${k}"${k === S.corr.tpl ? " selected" : ""}>${esc(t.n)}</option>`).join("")}</select></div>
+      <div><label for="cf">Fecha y hora propuestas (si corresponde)</label><input id="cf" maxlength="120" placeholder="Ej.: jueves 12 de noviembre, 10:00" value="${esc(S.corr.fecha)}" autocomplete="off"></div>
+      <div><label for="cn">Dato que falta, motivo o alternativa (si corresponde)</label><input id="cn" maxlength="200" value="${esc(S.corr.nota)}" autocomplete="off"></div>
+      <div><label for="ca">Asunto</label><input id="ca" readonly></div>
+      <div><label for="cc">Mensaje (puedes editarlo)</label><textarea id="cc" style="min-height:230px"></textarea></div>
+      <div class="row" style="flex-wrap:wrap"><button class="btn primary" id="cp2">Copiar correo</button><button class="btn" id="cm">Abrir en mi correo</button></div>
+      ${/@/.test(d.contacto || "") ? `<p class="note" style="margin:0">Contacto registrado: ${esc(d.contacto)}</p>` : `<p class="note" style="margin:0">El contacto registrado no parece un correo (${esc(d.contacto || "vacío")}). Copia el texto y envíalo por el medio que corresponda.</p>`}
     </div>` : `<div class="card note">Su rol es de solo lectura.</div>`}
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
     ${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
@@ -332,6 +376,7 @@ function vistaDetalle() {
     bind("fe", "estado"); bind("fm", "mensaje"); bind("fg", "gestor"); bind("fn", "notaInterna");
     document.getElementById("fe").addEventListener("change", e => { S.form.estado = e.target.value; });
     document.getElementById("gd").onclick = () => { if (!S.busy) guardar(); };
+    bindCorreo();
   }
 }
 
@@ -384,7 +429,7 @@ function vistaPanel() {
   app$.querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { S.dia = S.dia === b.dataset.dia ? "" : b.dataset.dia; render(); });
   app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
 }
-function abrir(id) { S.vuelta = S.view === "panel" ? "panel" : "list"; S.sel = S.docs.find(d => d.id === id); S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); }
+function abrir(id) { S.vuelta = S.view === "panel" ? "panel" : "list"; S.sel = S.docs.find(d => d.id === id); S.corr = { tpl: PLANTILLA_POR_ESTADO[S.sel.estado] || "recibida", fecha: "", nota: "", cuerpo: "" }; S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); }
 function vistaPersonas() {
   const P = S.pers, yo = S.user.uid;
   app$.innerHTML = `<div class="stack">
