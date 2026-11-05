@@ -49,7 +49,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
 .kpi b{display:block;font-family:"Archivo",sans-serif;font-size:30px;line-height:1.1}.kpi span{font-size:12.5px;color:var(--muted)}
-button.kpi{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}button.kpi.sel{border-color:var(--accent);outline:2px solid var(--accent)}
+button.kpi{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}.grp-t{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:2px 2px 6px}
+.kpi small{display:block;font-size:11px;color:var(--faint);line-height:1.2;margin-top:2px}.kpi strong{font-weight:600;color:var(--fg)}
+button.kpi.sel{border-color:var(--accent);outline:2px solid var(--accent)}
 .kpis.mini{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.kpis.mini .kpi{padding:8px 10px}.kpis.mini .kpi b{font-size:22px}.kpis.mini .kpi span{font-size:11.5px;line-height:1.2;display:block}.filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.filtros label{margin-bottom:3px;font-size:12px}.filtros select{padding:8px 30px 8px 10px;font-size:15px}.item .top{flex-wrap:wrap;row-gap:4px}button.kpi.on{border-color:var(--accent);outline:2px solid var(--accent)}div.kpi.info{box-shadow:none;background:transparent}
 .kpi.alert b{color:var(--danger)}
 button.bar,button.kpi{font:inherit;color:inherit;cursor:pointer;text-align:left}button.bar{background:none;border:0;width:100%;padding:2px 0;border-radius:6px}button.bar:active,button.bar:hover{background:var(--accent-soft)}button.kpi:active{outline:2px solid var(--accent)}
@@ -347,8 +349,8 @@ function kpisLista() {
   const D = S.docs, ab = D.filter(abierta), sinG = ab.filter(d => !d.gestor).length, viejas = ab.filter(d => dias(d.createdAt) > 7).length;
   const atend = D.filter(d => d.estado === "Aceptada" || d.estado === "Realizada").length;
   const a = ab.map(d => dias(d.createdAt)).sort((x, y) => x - y), med = a.length ? a[Math.floor(a.length / 2)] : 0;
-  const t = (k, n, txt, al) => `<button type="button" class="kpi ${al && n ? "alert" : ""} ${S.fx === k ? "on" : ""}" data-fxk="${k}" aria-pressed="${S.fx === k}"><b>${n}</b><span>${txt}</span></button>`;
-  return `<div class="kpis mini">${t("abiertas", ab.length, "Abiertas")}${t("singestor", sinG, "Sin gestor", 1)}${t("viejas", viejas, "Más de 7 días", 1)}${t("atendidas", D.length ? Math.round(atend / D.length * 100) + "%" : "0%", "Atendidas")}</div>`;
+  const t = (k, n, txt, cap, al) => `<button type="button" class="kpi ${al && n ? "alert" : ""} ${S.fx === k ? "on" : ""}" data-fxk="${k}" aria-pressed="${S.fx === k}"><b>${n}</b><span><strong>${txt}</strong><small>${cap}</small></span></button>`;
+  return `<div class="kpis mini">${t("abiertas", ab.length, "Abiertas", "Solicitada o Por confirmar")}${t("singestor", sinG, "Sin gestor", "abiertas sin asignar", 1)}${t("viejas", viejas, "Atrasadas", "abiertas hace más de 7 días", 1)}${t("atendidas", D.length ? Math.round(atend / D.length * 100) + "%" : "0%", "Atendidas", "Aceptada o Realizada")}</div>`;
 }
 function vistaLista() {
   if (S.fx === "nuevas" && !nNuevas()) S.fx = "";
@@ -539,13 +541,13 @@ function vistaPersonas() {
   const f2 = x => Array.isArray(x.funciones) ? x.funciones : [];
   const pk = S.pk || (pend.length ? "pend" : "todos");
   const GRUPOS = {
-    todos: ["Personas con acceso", P.eq],
-    admin: ["Admin", P.eq.filter(p => p.rol === "admin")],
-    gestor: ["Gestores", P.eq.filter(p => f2(p).includes("gestor"))],
-    agenda: ["Encargados de agenda", P.eq.filter(p => f2(p).includes("agenda"))],
-    sin: ["Aún no han entrado", P.eq.filter(p => !p.ultimoIngreso)]
+    todos: ["Aprobadas: personas con acceso", P.eq],
+    admin: ["Aprobadas con perfil Admin", P.eq.filter(p => p.rol === "admin")],
+    gestor: ["Aprobadas con perfil Gestor", P.eq.filter(p => f2(p).includes("gestor"))],
+    agenda: ["Aprobadas con perfil Encargado de agenda", P.eq.filter(p => f2(p).includes("agenda"))],
+    sin: ["Aprobadas que aún no han ingresado", P.eq.filter(p => !p.ultimoIngreso)]
   };
-  const kp = (n, t, k, alerta) => `<button type="button" class="kpi ${alerta && n ? "alert" : ""} ${pk === k ? "sel" : ""}" data-k="${k}" aria-pressed="${pk === k}"><b>${n}</b><span>${t}</span></button>`;
+  const kp = (n, t, cap, k, alerta) => `<button type="button" class="kpi ${alerta && n ? "alert" : ""} ${pk === k ? "sel" : ""}" data-k="${k}" aria-pressed="${pk === k}"><b>${n}</b><span><strong>${t}</strong><small>${cap}</small></span></button>`;
   const perfilTxt = x => [...(x.rol === "admin" ? ["Admin"] : []), ...f2(x).map(z => z === "gestor" ? "Gestor" : "Encargado de agenda")].join(", ") || "sin perfil";
   const mail = S.mailP ? correoAcceso() : null;
   const tarjetaPersona = p => {
@@ -556,17 +558,19 @@ function vistaPersonas() {
   };
   let cuerpo;
   if (pk === "pend") {
-    cuerpo = `<h3 style="font-size:16px">Solicitudes de acceso pendientes (${pend.length})</h3>` + (pend.length ? pend.map(a => `<div class="card stack" data-acc="${esc(a.uid)}"><div><b>${esc(a.nombre)}</b><div class="meta">${esc(a.correo)}</div><div class="meta">Solicitó: <b>${esc(fh(a.createdAt))}</b> · ${hace(a.createdAt)}</div></div>
+    cuerpo = `<h3 style="font-size:16px">Pendientes: esperan tu decisión (${pend.length})</h3><p class="note" style="margin:0">Personas que pidieron acceso. Apruébalas con el perfil que corresponda o descártalas.</p>` + (pend.length ? pend.map(a => `<div class="card stack" data-acc="${esc(a.uid)}"><div><b>${esc(a.nombre)}</b><div class="meta">${esc(a.correo)}</div><div class="meta">Solicitó: <b>${esc(fh(a.createdAt))}</b> · ${hace(a.createdAt)}</div></div>
         <div class="row" style="flex-wrap:wrap"><button class="btn sm primary" data-ap="soporte">Aprobar como Gestor</button><button class="btn sm" data-ap="admin">Aprobar como Admin</button><button class="btn sm" data-ds="1">Descartar</button></div></div>`).join("") : `<p class="note" style="margin:0">No hay solicitudes pendientes. Pide a cada persona que entre a esta página y toque «Primera vez: crear mi cuenta».</p>`);
   } else if (pk === "desc") {
-    cuerpo = `<h3 style="font-size:16px">Descartadas (${desc.length})</h3>` + (desc.length ? desc.map(a => `<div class="card stack" data-his="${esc(a.uid)}" data-e="Descartada"><div class="top" style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(a.nombre)}</b><span class="badge" style="background:var(--s-rec)">Descartada</span></div><div class="meta">${esc(a.correo)}</div><div class="meta">Solicitó: ${esc(fh(a.createdAt))} · Descartada: ${esc(fh(a.resueltoAt))}${a.resueltoPor ? " por " + esc(a.resueltoPor) : ""}</div>
+    cuerpo = `<h3 style="font-size:16px">Descartadas: sin acceso (${desc.length})</h3><p class="note" style="margin:0">No pueden entrar. Si fue un error, usa «Volver a pendiente».</p>` + (desc.length ? desc.map(a => `<div class="card stack" data-his="${esc(a.uid)}" data-e="Descartada"><div class="top" style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(a.nombre)}</b><span class="badge" style="background:var(--s-rec)">Descartada</span></div><div class="meta">${esc(a.correo)}</div><div class="meta">Solicitó: ${esc(fh(a.createdAt))} · Descartada: ${esc(fh(a.resueltoAt))}${a.resueltoPor ? " por " + esc(a.resueltoPor) : ""}</div>
         <div class="row" style="flex-wrap:wrap"><button class="btn sm primary" data-un="1">Volver a pendiente</button><button class="btn sm" data-vc="1">Ver correo</button><button class="btn sm" data-ap="soporte">Aprobar como Gestor</button><button class="btn sm" data-ap="admin">Aprobar como Admin</button></div></div>`).join("") : `<p class="note" style="margin:0">No hay descartadas. Las que descartes quedarán aquí y se podrán recuperar.</p>`);
   } else {
     const [titulo, L] = GRUPOS[pk];
-    cuerpo = `<h3 style="font-size:16px">${titulo} (${L.length})</h3>` + (pk === "sin" ? `<p class="note" style="margin:0">Personas que todavía no han ingresado con su cuenta desde que el sistema empezó a registrar los ingresos.</p>` : "") + (L.length ? L.map(tarjetaPersona).join("") : `<p class="note" style="margin:0">Nadie en esta categoría.</p>`);
+    const NOTA = { todos: "Todas las personas que hoy pueden entrar, incluidas las que se agregaron antes de existir el formulario de solicitud.", admin: "Administran personas y perfiles y ven el Panel. Una persona puede tener más de un perfil, por eso estos números no suman.", gestor: "Atienden las solicitudes de los médicos y pueden figurar como gestor responsable.", agenda: "Figuran como encargadas de agenda.", sin: "Tienen acceso, pero aún no entran con su cuenta (se cuenta desde que el sistema registra ingresos)." };
+    cuerpo = `<h3 style="font-size:16px">${titulo} (${L.length})</h3><p class="note" style="margin:0">${NOTA[pk]}</p>` + (L.length ? L.map(tarjetaPersona).join("") : `<p class="note" style="margin:0">Nadie en esta categoría.</p>`);
   }
   app$.innerHTML = `<div class="stack">
-    <div class="kpis">${kp(P.eq.length, "Personas con acceso", "todos")}${kp(GRUPOS.admin[1].length, "Admin", "admin")}${kp(GRUPOS.gestor[1].length, "Gestores", "gestor")}${kp(GRUPOS.agenda[1].length, "Encargados de agenda", "agenda")}${kp(pend.length, "Solicitudes pendientes", "pend", 1)}${kp(desc.length, "Descartadas", "desc")}${kp(GRUPOS.sin[1].length, "Aún no han entrado", "sin")}</div>
+    <div><div class="grp-t">Solicitudes de acceso</div><div class="kpis">${kp(pend.length, "Pendientes", "esperan tu decisión", "pend", 1)}${kp(P.eq.length, "Aprobadas", "ya tienen acceso", "todos")}${kp(desc.length, "Descartadas", "sin acceso", "desc")}</div></div>
+    <div><div class="grp-t">Entre las aprobadas, según perfil</div><div class="kpis">${kp(GRUPOS.admin[1].length, "Admin", "administran el equipo", "admin")}${kp(GRUPOS.gestor[1].length, "Gestor", "atienden solicitudes", "gestor")}${kp(GRUPOS.agenda[1].length, "Encargado de agenda", "función de agenda", "agenda")}${kp(GRUPOS.sin[1].length, "Aún sin ingresar", "aprobadas que no han entrado", "sin")}</div></div>
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
     ${mail ? `<div class="card stack" style="border-color:var(--accent)"><h3 style="font-size:16px">Correo para ${esc(S.mailP.nombre)}</h3>
       <div class="meta">Para: ${esc(S.mailP.correo)}</div>
