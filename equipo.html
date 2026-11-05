@@ -76,7 +76,7 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:1
 <script type="module">
 import { firebaseConfig } from "./config.js?v=2";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { initializeFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const ESTADOS = ["Solicitada", "Por confirmar", "Aceptada", "Realizada", "Rechazada"];
@@ -86,6 +86,7 @@ const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
+auth.languageCode = "es";
 const S = { pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
@@ -124,7 +125,6 @@ async function registrar(nombre, correo, clave) {
   S.busy = true; render();
   try {
     const c = await createUserWithEmailAndPassword(auth, correo, clave);
-    try { await sendEmailVerification(c.user); } catch (e) {}
     await setDoc(doc(db, "accesos", c.user.uid), { nombre: nombre.slice(0, 120), correo: correo.slice(0, 120), createdAt: serverTimestamp() });
     S.accSent = true; S.reg = false;
   } catch (e) { S.err = errAuth(e); }
@@ -170,6 +170,12 @@ async function descartar(uid) {
     await updateDoc(doc(db, "accesos", uid), { estado: "Descartada", resueltoPor: S.perfil.nombre || S.user.email, resueltoAt: serverTimestamp() });
     S.info = "Solicitud marcada como descartada. Queda en el historial."; abrirCorreoAcceso(a, "descartada");
   } catch (e) { S.err = (e && e.code === "permission-denied") ? "Para guardar las descartadas hay que publicar las reglas nuevas (firestore.rules en el repositorio)." : "No se pudo descartar (" + ((e && e.code) || "error") + ")."; }
+  await cargarPersonas();
+}
+async function reabrir(uid) {
+  S.err = ""; S.info = "";
+  try { await updateDoc(doc(db, "accesos", uid), { estado: "Pendiente", resueltoPor: S.perfil.nombre || S.user.email, resueltoAt: serverTimestamp() }); S.info = "Listo: la solicitud volvió a pendientes."; }
+  catch (e) { S.err = (e && e.code === "permission-denied") ? "Para deshacer hay que publicar las reglas nuevas (firestore.rules en el repositorio)." : "No se pudo deshacer (" + ((e && e.code) || "error") + ")."; }
   await cargarPersonas();
 }
 function correoAcceso() {
@@ -467,7 +473,7 @@ function vistaPanel() {
   app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
 }
 function abrir(id) { S.vuelta = S.view === "panel" ? "panel" : "list"; S.sel = S.docs.find(d => d.id === id); S.corr = { tpl: PLANTILLA_POR_ESTADO[S.sel.estado] || "recibida", fecha: "", nota: "", cuerpo: "" }; S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); }
-const pendientes = () => { const ids = new Set(S.pers.eq.map(p => p.uid)); return S.pers.acc.filter(a => !a.estado && !ids.has(a.uid)); };
+const pendientes = () => { const ids = new Set(S.pers.eq.map(p => p.uid)); return S.pers.acc.filter(a => (!a.estado || a.estado === "Pendiente") && !ids.has(a.uid)); };
 const fh = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"; } catch (e) { return "—"; } };
 function vistaPersonas() {
   const P = S.pers, yo = S.user.uid, ids = new Set(P.eq.map(p => p.uid));
@@ -479,14 +485,14 @@ function vistaPersonas() {
   const kp = (n, t, k, alerta) => `<button type="button" class="kpi ${alerta && n ? "alert" : ""} ${S.pk === k ? "sel" : ""}" data-k="${k}" aria-pressed="${S.pk === k}"><b>${n}</b><span>${t}</span></button>`;
   const mail = S.mailP ? correoAcceso() : null;
   app$.innerHTML = `<div class="stack">
-    <div class="kpis">${kp(P.eq.length, "Personas con acceso", "todos")}${kp(P.eq.filter(p => p.rol === "admin").length, "Admin", "admin")}${kp(fn("gestor"), "Gestores responsables", "gestor")}${kp(fn("agenda"), "Encargados de agenda", "agenda")}${kp(pend.length, "Solicitudes pendientes", "pend", 1)}${kp(desc.length, "Descartadas", "desc")}${kp(sinIng, "Sin ingreso registrado", "sin")}</div>
+    <div class="kpis">${kp(P.eq.length, "Personas con acceso", "todos")}${kp(P.eq.filter(p => p.rol === "admin").length, "Admin", "admin")}${kp(fn("gestor"), "Gestores", "gestor")}${kp(fn("agenda"), "Encargados de agenda", "agenda")}${kp(pend.length, "Solicitudes pendientes", "pend", 1)}${kp(desc.length, "Descartadas", "desc")}${kp(sinIng, "Aún no han entrado", "sin")}</div>
     ${S.pk ? (() => {
-      const T = { todos: "Personas con acceso", admin: "Admin", gestor: "Gestores responsables", agenda: "Encargados de agenda", pend: "Solicitudes pendientes", desc: "Descartadas", sin: "Sin ingreso registrado" };
+      const T = { todos: "Personas con acceso", admin: "Admin", gestor: "Gestores", agenda: "Encargados de agenda", pend: "Solicitudes pendientes", desc: "Descartadas", sin: "Aún no han entrado" };
       const f2 = x => Array.isArray(x.funciones) ? x.funciones : [];
       const L = S.pk === "todos" ? P.eq : S.pk === "admin" ? P.eq.filter(p => p.rol === "admin") : S.pk === "gestor" ? P.eq.filter(p => f2(p).includes("gestor")) : S.pk === "agenda" ? P.eq.filter(p => f2(p).includes("agenda")) : S.pk === "sin" ? P.eq.filter(p => !p.ultimoIngreso) : S.pk === "pend" ? pend : desc;
       const eqL = ["todos", "admin", "gestor", "agenda", "sin"].includes(S.pk);
       return `<div class="card stack" style="border-color:var(--accent)"><div class="top" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="font-size:16px">${T[S.pk]} (${L.length})</h3><button class="btn sm" id="pkx">Cerrar</button></div>
-      ${L.length ? L.map(x => `<div><b>${esc(x.nombre)}</b><div class="meta">${esc(x.correo)}${eqL ? " · " + (x.rol === "admin" ? "Admin" : "Gestor") + (f2(x).length ? " · " + f2(x).map(z => z === "gestor" ? "gestor responsable" : "encargado de agenda").join(", ") : "") + " · último ingreso: " + (x.ultimoIngreso ? esc(fh(x.ultimoIngreso)) : "sin registro") : " · solicitó: " + esc(fh(x.createdAt))}</div></div>`).join("") : `<p class="note" style="margin:0">Nadie en esta categoría.</p>`}</div>`;
+      ${L.length ? L.map(x => `<div><b>${esc(x.nombre)}</b><div class="meta">${esc(x.correo)}${eqL ? " · " + ([...(x.rol === "admin" ? ["Admin"] : []), ...f2(x).map(z => z === "gestor" ? "Gestor" : "Encargado de agenda")].join(", ") || "sin perfil") + " · último ingreso: " + (x.ultimoIngreso ? esc(fh(x.ultimoIngreso)) : "aún no ha entrado") : " · solicitó: " + esc(fh(x.createdAt))}</div></div>`).join("") : `<p class="note" style="margin:0">Nadie en esta categoría.</p>`}</div>`;
     })() : ""}
     ${mail ? `<div class="card stack" style="border-color:var(--accent)"><h3 style="font-size:16px">Correo para ${esc(S.mailP.nombre)}</h3>
       <div class="meta">Para: ${esc(S.mailP.correo)}</div>
@@ -498,14 +504,13 @@ function vistaPersonas() {
         <div class="row" style="flex-wrap:wrap"><button class="btn sm primary" data-ap="soporte">Aprobar como Gestor</button><button class="btn sm" data-ap="admin">Aprobar como Admin</button><button class="btn sm" data-ds="1">Descartar</button></div></div>`).join("") : `<p class="note" style="margin:0">No hay solicitudes pendientes. Pide a cada persona que entre a esta página y toque «Primera vez: crear mi cuenta».</p>`}
     </div>
     <div class="card stack"><h3 style="font-size:16px">Equipo (${P.eq.length})</h3>
-      ${P.eq.map(p => { const f = Array.isArray(p.funciones) ? p.funciones : [], yoMismo = p.uid === yo; return `<div class="card stack" data-eq="${esc(p.uid)}"><div><b>${esc(p.nombre)}</b>${yoMismo ? " (tú)" : ""}<div class="meta">${esc(p.correo)}</div><div class="meta">Último ingreso: <b>${p.ultimoIngreso ? esc(fh(p.ultimoIngreso)) : "sin registro"}</b></div></div>
-        <div><label>Rol</label><select data-rol ${yoMismo ? "disabled" : ""}><option value="admin"${p.rol === "admin" ? " selected" : ""}>Admin</option><option value="soporte"${p.rol === "soporte" ? " selected" : ""}>Gestor</option></select></div>
-        <div class="row" style="flex-wrap:wrap;gap:14px"><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" data-fn="gestor" style="width:auto"${f.includes("gestor") ? " checked" : ""}> Gestor responsable</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" data-fn="agenda" style="width:auto"${f.includes("agenda") ? " checked" : ""}> Encargado de agenda</label></div>
+      ${P.eq.map(p => { const f = Array.isArray(p.funciones) ? p.funciones : [], yoMismo = p.uid === yo; return `<div class="card stack" data-eq="${esc(p.uid)}"><div><b>${esc(p.nombre)}</b>${yoMismo ? " (tú)" : ""}<div class="meta">${esc(p.correo)}</div><div class="meta">Último ingreso: <b>${p.ultimoIngreso ? esc(fh(p.ultimoIngreso)) : "aún no ha entrado"}</b></div></div>
+        <div><label>Perfiles (marca uno o varios)</label><div class="chips" style="flex-wrap:wrap;overflow:visible">${[["admin", "Admin"], ["gestor", "Gestor"], ["agenda", "Encargado de agenda"]].map(([k, t]) => { const on = k === "admin" ? p.rol === "admin" : f.includes(k); return `<button type="button" class="chip" data-perfil="${k}" aria-pressed="${on}" ${k === "admin" && yoMismo ? "disabled" : ""}>${t}</button>`; }).join("")}</div></div>
         <div class="row" style="flex-wrap:wrap"><button class="btn sm primary" data-gp="1" ${S.busy ? "disabled" : ""}>Guardar</button>${yoMismo ? "" : `<button class="btn sm" data-qp="1">Quitar acceso</button>`}</div></div>`; }).join("") || `<p class="note" style="margin:0">Sin personas.</p>`}
     </div>
     <div class="card stack"><h3 style="font-size:16px">Historial de solicitudes</h3>
       ${desc.length + apro.length ? [...desc.map(a => [a, "Descartada", "var(--s-rec)"]), ...apro.map(a => [a, "Aprobada", "var(--s-ace)"])].map(([a, e, c]) => `<div class="card stack" data-his="${esc(a.uid)}" data-e="${e}"><div class="top" style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(a.nombre)}</b><span class="badge" style="background:${c}">${e}</span></div><div class="meta">${esc(a.correo)}</div><div class="meta">Solicitó: ${esc(fh(a.createdAt))} · Resuelta: ${esc(fh(a.resueltoAt))}${a.resueltoPor ? " por " + esc(a.resueltoPor) : ""}</div>
-        <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-vc="1">Ver correo</button>${e === "Descartada" ? `<button class="btn sm primary" data-ap="soporte">Aprobar como Gestor</button><button class="btn sm" data-ap="admin">Aprobar como Admin</button>` : ""}</div></div>`).join("") : `<p class="note" style="margin:0">Aún no hay solicitudes resueltas. Las descartadas quedarán aquí, no se borran.</p>`}
+        <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-vc="1">Ver correo</button>${e === "Descartada" ? `<button class="btn sm primary" data-un="1">Volver a pendiente</button><button class="btn sm" data-ap="soporte">Aprobar como Gestor</button><button class="btn sm" data-ap="admin">Aprobar como Admin</button>` : ""}</div></div>`).join("") : `<p class="note" style="margin:0">Aún no hay solicitudes resueltas. Las descartadas quedarán aquí, no se borran.</p>`}
     </div>
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
   </div>`;
@@ -516,9 +521,11 @@ function vistaPersonas() {
     c.querySelector("[data-ds]").onclick = () => descartar(u); });
   app$.querySelectorAll("[data-his]").forEach(c => { const u = c.dataset.his, a = P.acc.find(x => x.uid === u);
     c.querySelector("[data-vc]").onclick = () => { abrirCorreoAcceso(a, c.dataset.e === "Aprobada" ? "aprobada" : "descartada", (P.eq.find(p => p.uid === u) || {}).rol); render(); window.scrollTo(0, 0); };
+    const un = c.querySelector("[data-un]"); if (un) un.onclick = () => reabrir(u);
     c.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => { if (!S.busy) aprobar(u, b.dataset.ap); }); });
   app$.querySelectorAll("[data-eq]").forEach(c => { const u = c.dataset.eq;
-    c.querySelector("[data-gp]").onclick = () => { if (S.busy) return; guardarPersona(u, c.querySelector("[data-rol]").value, [...c.querySelectorAll("[data-fn]")].filter(x => x.checked).map(x => x.dataset.fn)); };
+    c.querySelectorAll("[data-perfil]").forEach(b => b.onclick = () => { if (!b.disabled) b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); });
+    c.querySelector("[data-gp]").onclick = () => { if (S.busy) return; const on = k => c.querySelector('[data-perfil="' + k + '"]').getAttribute("aria-pressed") === "true"; guardarPersona(u, on("admin") ? "admin" : "soporte", ["gestor", "agenda"].filter(on)); };
     const q = c.querySelector("[data-qp]"); if (q) q.onclick = () => { if (q.dataset.sure) quitarPersona(u); else { q.dataset.sure = "1"; q.textContent = "¿Seguro? Toca otra vez"; } }; });
   if (mail) {
     const pa = document.getElementById("pa"), pc = document.getElementById("pc");

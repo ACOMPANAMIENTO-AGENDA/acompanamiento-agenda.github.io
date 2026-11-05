@@ -75,6 +75,7 @@ function init() {
   fb = initializeApp(firebaseConfig);
   if (RECAPTCHA_SITE_KEY) { try { initializeAppCheck(fb, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true }); } catch (e) {} }
   auth = getAuth(fb);
+  auth.languageCode = "es";
   // Si la red del hospital bloquea el método normal, cambia solo a long-polling.
   db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
   return true;

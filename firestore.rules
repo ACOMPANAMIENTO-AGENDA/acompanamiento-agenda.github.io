@@ -104,10 +104,10 @@ service cloud.firestore {
                     && request.resource.data.correo is string && request.resource.data.correo.size() <= 120
                     && request.resource.data.createdAt == request.time;
       allow read, delete: if esAdmin();
-      // Un admin marca la solicitud como Aprobada o Descartada; nunca se borra, queda en el historial.
+      // Un admin marca la solicitud como Aprobada, Descartada o la devuelve a Pendiente; nunca se borra.
       allow update: if esAdmin()
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'resueltoPor', 'resueltoAt'])
-                    && request.resource.data.estado in ['Aprobada', 'Descartada']
+                    && request.resource.data.estado in ['Aprobada', 'Descartada', 'Pendiente']
                     && request.resource.data.resueltoAt == request.time
                     && (!('resueltoPor' in request.resource.data)
                         || (request.resource.data.resueltoPor is string && request.resource.data.resueltoPor.size() <= 120));
