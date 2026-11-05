@@ -51,6 +51,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .kpi b{display:block;font-family:"Archivo",sans-serif;font-size:30px;line-height:1.1}.kpi span{font-size:12.5px;color:var(--muted)}
 button.kpi{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}button.kpi.sel{border-color:var(--accent);outline:2px solid var(--accent)}
 .kpi.alert b{color:var(--danger)}
+button.bar,button.kpi{font:inherit;color:inherit;cursor:pointer;text-align:left}button.bar{background:none;border:0;width:100%;padding:2px 0;border-radius:6px}button.bar:active,button.bar:hover{background:var(--accent-soft)}button.kpi:active{outline:2px solid var(--accent)}
+.stk button{border:0;padding:0;height:100%;cursor:pointer}.leg button{border:0;background:none;color:inherit;font:inherit;padding:2px 0;cursor:pointer;text-decoration:underline dotted}
+.go{font-size:12px;color:var(--accent);margin:2px 0 0}
 .bar{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:8px;align-items:center;font-size:13.5px;margin:6px 0}
 .bar .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar .t{height:14px;background:var(--accent-soft);border-radius:7px;overflow:hidden}.bar .t i{display:block;height:100%;border-radius:7px;background:var(--accent)}
 .stk{display:flex;height:22px;border-radius:11px;overflow:hidden;background:var(--line)}.stk i{display:block;height:100%}
@@ -87,7 +90,7 @@ const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
 auth.languageCode = "es";
-const S = { pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const S = { fx: "", pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -228,7 +231,7 @@ const hace = t => { const n = dias(t); return n === 0 ? "hoy" : n === 1 ? "hace 
 const corta = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"; } catch (e) { return "—"; } };
 function filtradas() {
   const q = norm(S.q).trim();
-  const out = S.docs.filter(d => (S.f === "Todas" || d.estado === S.f) &&
+  const out = S.docs.filter(d => (S.f === "Todas" || d.estado === S.f) && fxOk(d) &&
     (!S.fg || (S.fg === "__sin" ? !d.gestor : d.gestor === S.fg)) &&
     (!S.fsv || d.servicio === S.fsv) &&
     (!q || norm([d.id, d.tema, d.solicitante, d.especialidad, d.servicio, d.contacto, d.gestor].join(" ")).includes(q)));
@@ -329,6 +332,7 @@ function vistaLista() {
       </div>
       <div class="chips" role="group" aria-label="Filtrar por estado">${["Todas", ...ESTADOS].map(e => `<button class="chip" data-f="${esc(e)}" aria-pressed="${S.f === e}">${esc(e)} (${cuenta(e)})</button>`).join("")}</div>
     </div>
+    ${S.fx ? `<div class="msg ok" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0"><span>Mostrando: <b>${esc(S.fx.startsWith("edad:") ? "Abiertas con " + (S.fx.split(":")[2] > 9999 ? "más de " + S.fx.split(":")[1] : S.fx.split(":")[1] + " a " + S.fx.split(":")[2]) + " días de espera" : FX_TXT[S.fx] || "")}</b></span><button class="btn sm" id="qfx">Quitar filtro</button></div>` : ""}
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
     <div class="cnt">${S.listo ? L.length + " de " + S.docs.length + " solicitudes" : "Cargando…"}</div>
     ${L.map(d => `<button class="card item" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}</span><span class="enviada"><b>${esc(corta(d.createdAt))}</b> · ${hace(d.createdAt)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)}${d.gestor ? " · Gestor: " + esc(d.gestor) : " · Sin gestor"}</div></button>`).join("")}
@@ -340,6 +344,7 @@ function vistaLista() {
   bq.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); buscar(); } });
   bq.addEventListener("input", () => { S.q = bq.value; S.err = ""; const p = bq.selectionStart; render(); const n = document.getElementById("bq"); n.focus(); try { n.setSelectionRange(p, p); } catch (e) {} });
   document.getElementById("exp").onclick = exportar;
+  const qfx = document.getElementById("qfx"); if (qfx) qfx.onclick = () => { S.fx = ""; render(); };
   document.getElementById("so").onchange = e => { S.orden = e.target.value; render(); };
   document.getElementById("sg").onchange = e => { S.fg = e.target.value; render(); };
   document.getElementById("ss").onchange = e => { S.fsv = e.target.value; render(); };
@@ -424,15 +429,36 @@ function vistaDetalle() {
 }
 
 const abierta = d => d.estado === "Solicitada" || d.estado === "Por confirmar";
-function barras(items, max, color) {
-  return items.map(([n, v]) => `<div class="bar"><span class="n" title="${esc(n)}">${esc(n)}</span><span class="t"><i style="width:${max ? Math.round(v / max * 100) : 0}%;${color ? "background:" + color : ""}"></i></span><b>${v}</b></div>`).join("") || `<p class="note">Sin datos todavía.</p>`;
+function barras(items, max, color, kind) {
+  return items.map(([n, v, key]) => `<button type="button" class="bar" data-go="${esc(kind + ":" + (key !== undefined ? key : n))}" aria-label="${esc(n)}: ${v}. Ver en la lista"><span class="n" title="${esc(n)}">${esc(n)}</span><span class="t"><i style="width:${max ? Math.round(v / max * 100) : 0}%;${color ? "background:" + color : ""}"></i></span><b>${v}</b></button>`).join("") || `<p class="note">Sin datos todavía.</p>`;
 }
+const FX_TXT = { abiertas: "Abiertas (por atender)", singestor: "Abiertas sin gestor asignado", viejas: "Abiertas con más de 7 días de espera", atendidas: "Atendidas (aceptadas o realizadas)" };
+function irALista(spec) {
+  const [k, ...r] = spec.split(":"), v = r.join(":");
+  S.fx = ""; S.f = "Todas"; S.fg = ""; S.fsv = ""; S.q = ""; S.orden = "antiguas"; S.err = "";
+  if (k === "kpi") S.fx = v;
+  else if (k === "edad") S.fx = "edad:" + v;
+  else if (k === "gestor") { S.fx = "abiertas"; S.fg = v === "Sin asignar" ? "__sin" : v; }
+  else if (k === "serv") S.fsv = v;
+  else if (k === "est") S.f = v;
+  S.view = "list"; render(); window.scrollTo(0, 0);
+}
+const fxOk = d => {
+  if (!S.fx) return true;
+  const abierta2 = abierta(d), x = dias(d.createdAt);
+  if (S.fx === "abiertas") return abierta2;
+  if (S.fx === "singestor") return abierta2 && !d.gestor;
+  if (S.fx === "viejas") return abierta2 && x > 7;
+  if (S.fx === "atendidas") return d.estado === "Aceptada" || d.estado === "Realizada";
+  if (S.fx.startsWith("edad:")) { const [, a, b] = S.fx.split(":"); return abierta2 && x >= +a && x <= +b; }
+  return true;
+};
 function vistaPanel() {
   const D = S.docs, ab = D.filter(abierta), N = D.length;
   const sinG = ab.filter(d => !d.gestor).length, viejas = ab.filter(d => dias(d.createdAt) > 7).length;
   const atend = D.filter(d => d.estado === "Aceptada" || d.estado === "Realizada").length;
   const med = (() => { const a = ab.map(d => dias(d.createdAt)).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; })();
-  const cub = [["0–2 días", 0, 2], ["3–7 días", 3, 7], ["8–14 días", 8, 14], ["Más de 15 días", 15, 1e9]].map(([n, a, b]) => [n, ab.filter(d => { const x = dias(d.createdAt); return x >= a && x <= b; }).length]);
+  const cub = [["0–2 días", 0, 2], ["3–7 días", 3, 7], ["8–14 días", 8, 14], ["Más de 15 días", 15, 99999]].map(([n, a, b]) => [n, ab.filter(d => { const x = dias(d.createdAt); return x >= a && x <= b; }).length, a + ":" + b]);
   const carga = {}; ab.forEach(d => { const g = d.gestor || "Sin asignar"; carga[g] = (carga[g] || 0) + 1; });
   const cargaL = Object.entries(carga).sort((a, b) => b[1] - a[1]);
   const serv = {}; D.forEach(d => { if (d.servicio) serv[d.servicio] = (serv[d.servicio] || 0) + 1; });
@@ -448,18 +474,18 @@ function vistaPanel() {
   const mesTxt = S.mes.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
   app$.innerHTML = `<div class="stack">
     <div class="kpis">
-      <div class="kpi"><b>${ab.length}</b><span>Abiertas (por atender)</span></div>
-      <div class="kpi ${sinG ? "alert" : ""}"><b>${sinG}</b><span>Sin gestor asignado</span></div>
-      <div class="kpi ${viejas ? "alert" : ""}"><b>${viejas}</b><span>Esperan más de 7 días</span></div>
-      <div class="kpi"><b>${med}</b><span>Días de espera (mediana)</span></div>
-      <div class="kpi"><b>${N ? Math.round(atend / N * 100) : 0}%</b><span>Atendidas (aceptada o realizada)</span></div>
+      <button type="button" class="kpi" data-go="kpi:abiertas"><b>${ab.length}</b><span>Abiertas (por atender)</span></button>
+      <button type="button" class="kpi ${sinG ? "alert" : ""}" data-go="kpi:singestor"><b>${sinG}</b><span>Sin gestor asignado</span></button>
+      <button type="button" class="kpi ${viejas ? "alert" : ""}" data-go="kpi:viejas"><b>${viejas}</b><span>Esperan más de 7 días</span></button>
+      <button type="button" class="kpi" data-go="kpi:abiertas"><b>${med}</b><span>Días de espera (mediana)</span></button>
+      <button type="button" class="kpi" data-go="kpi:atendidas"><b>${N ? Math.round(atend / N * 100) : 0}%</b><span>Atendidas (aceptada o realizada)</span></button>
     </div>
-    <div class="card"><h3 style="font-size:16px">Antigüedad de lo abierto</h3><p class="note" style="margin:2px 0 8px">Cuánto llevan esperando las solicitudes que aún no se resuelven.</p>${barras(cub, Math.max(1, ...cub.map(x => x[1])), "var(--s-sol)")}</div>
+    <div class="card"><h3 style="font-size:16px">Antigüedad de lo abierto</h3><p class="note" style="margin:2px 0 8px">Cuánto llevan esperando las solicitudes que aún no se resuelven.</p>${barras(cub, Math.max(1, ...cub.map(x => x[1])), "var(--s-sol)", "edad")}</div>
     <div class="card"><h3 style="font-size:16px">Estados</h3>
-      <div class="stk" role="img" aria-label="Distribución por estado">${ESTADOS.map(e => cnt(e) ? `<i style="width:${cnt(e) / N * 100}%;background:${COLOR[e]}" title="${e}: ${cnt(e)}"></i>` : "").join("")}</div>
-      <div class="leg">${ESTADOS.map(e => `<span><u style="background:${COLOR[e]}"></u>${e} ${cnt(e)}</span>`).join("")}</div></div>
-    <div class="card"><h3 style="font-size:16px">Carga por gestor (abiertas)</h3>${barras(cargaL, Math.max(1, ...cargaL.map(x => x[1])))}</div>
-    <div class="card"><h3 style="font-size:16px">Servicios que más piden</h3>${barras(servL, Math.max(1, ...servL.map(x => x[1])), "var(--s-rea)")}</div>
+      <div class="stk" role="group" aria-label="Distribución por estado">${ESTADOS.map(e => cnt(e) ? `<button type="button" data-go="est:${e}" style="width:${cnt(e) / N * 100}%;background:${COLOR[e]}" title="${e}: ${cnt(e)}" aria-label="${e}: ${cnt(e)}. Ver en la lista"></button>` : "").join("")}</div>
+      <div class="leg">${ESTADOS.map(e => `<button type="button" data-go="est:${e}"><u style="background:${COLOR[e]}"></u>${e} ${cnt(e)}</button>`).join("")}</div></div>
+    <div class="card"><h3 style="font-size:16px">Carga por gestor (abiertas)</h3>${barras(cargaL, Math.max(1, ...cargaL.map(x => x[1])), "", "gestor")}</div>
+    <div class="card"><h3 style="font-size:16px">Servicios que más piden</h3>${barras(servL, Math.max(1, ...servL.map(x => x[1])), "var(--s-rea)", "serv")}</div>
     <div class="card stack">
       <div class="top" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><button class="btn sm" id="mp" aria-label="Mes anterior">‹</button><h3 style="font-size:16px;text-align:center;flex:1">${esc(mesTxt.charAt(0).toUpperCase() + mesTxt.slice(1))}<small style="display:block;font-weight:400;font-size:12px;color:var(--muted)">fechas preferidas</small></h3><button class="btn sm" id="mn" aria-label="Mes siguiente">›</button></div>
       <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(x => `<span class="h">${x}</span>`).join("")}${cel}</div>
@@ -467,6 +493,7 @@ function vistaPanel() {
     </div>
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
   </div>`;
+  app$.querySelectorAll("[data-go]").forEach(b => b.onclick = () => irALista(b.dataset.go));
   document.getElementById("mp").onclick = () => { S.mes = new Date(y, m - 1, 1); S.dia = ""; render(); };
   document.getElementById("mn").onclick = () => { S.mes = new Date(y, m + 1, 1); S.dia = ""; render(); };
   app$.querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { S.dia = S.dia === b.dataset.dia ? "" : b.dataset.dia; render(); });
@@ -546,7 +573,7 @@ function render() {
   if (adm) {
     const v = S.view === "personas" ? "personas" : S.view === "panel" ? "panel" : "list", n = pendientes().length;
     app$.insertAdjacentHTML("afterbegin", `<div class="chips" role="tablist" style="margin-bottom:12px">${[["list", "Lista"], ["panel", "Panel"], ["personas", "Personas" + (n ? " (" + n + ")" : "")]].map(([k, t]) => `<button class="chip" role="tab" data-nav="${k}" aria-pressed="${v === k}">${t}</button>`).join("")}</div>`);
-    app$.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { S.view = b.dataset.nav; S.err = ""; S.info = ""; if (S.view === "personas") cargarPersonas(); render(); window.scrollTo(0, 0); });
+    app$.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { if (b.dataset.nav === "list" && S.view !== "list") { S.fx = ""; S.f = "Todas"; S.fg = ""; S.fsv = ""; S.q = ""; } S.view = b.dataset.nav; S.err = ""; S.info = ""; if (S.view === "personas") cargarPersonas(); render(); window.scrollTo(0, 0); });
   }
 }
 render();
