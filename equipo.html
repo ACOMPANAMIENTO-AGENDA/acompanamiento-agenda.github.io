@@ -49,6 +49,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
 .kpi b{display:block;font-family:"Archivo",sans-serif;font-size:30px;line-height:1.1}.kpi span{font-size:12.5px;color:var(--muted)}
+button.kpi{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}button.kpi.sel{border-color:var(--accent);outline:2px solid var(--accent)}
 .kpi.alert b{color:var(--danger)}
 .bar{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:8px;align-items:center;font-size:13.5px;margin:6px 0}
 .bar .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar .t{height:14px;background:var(--accent-soft);border-radius:7px;overflow:hidden}.bar .t i{display:block;height:100%;border-radius:7px;background:var(--accent)}
@@ -85,7 +86,7 @@ const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
-const S = { mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const S = { pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -314,7 +315,7 @@ function vistaLista() {
   const L = filtradas(), cuenta = e => S.docs.filter(d => e === "Todas" || d.estado === e).length;
   app$.innerHTML = `<div class="stack">
     <div class="card stack">
-      <div class="row"><input id="bq" type="search" placeholder="Buscar por código, tema, nombre…" value="${esc(S.q)}" autocomplete="off" autocapitalize="characters"><button class="btn" id="exp" title="Descargar todo en CSV">CSV</button></div>
+      <div class="row"><input id="bq" type="search" placeholder="Buscar por código, tema, nombre…" value="${esc(S.q)}" autocomplete="off" autocapitalize="characters"><button class="btn primary" id="bb">Buscar</button><button class="btn" id="exp" title="Descargar todo en CSV">CSV</button></div>
       <div class="row" style="flex-wrap:wrap">
         <div style="flex:1 1 160px"><label for="so">Ordenar por</label><select id="so"><option value="antiguas"${S.orden === "antiguas" ? " selected" : ""}>Más antiguas primero</option><option value="recientes"${S.orden === "recientes" ? " selected" : ""}>Más recientes primero</option><option value="preferida"${S.orden === "preferida" ? " selected" : ""}>Fecha preferida (próxima)</option></select></div>
         <div style="flex:1 1 160px"><label for="sg">Gestor</label><select id="sg"><option value="">Todos</option><option value="__sin"${S.fg === "__sin" ? " selected" : ""}>Sin asignar</option>${S.gestores.map(g => `<option${S.fg === g ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
@@ -328,7 +329,10 @@ function vistaLista() {
     ${S.listo && !L.length ? `<div class="card note">No hay solicitudes con estos filtros.</div>` : ""}
   </div>`;
   const bq = document.getElementById("bq");
-  bq.addEventListener("input", () => { S.q = bq.value; const p = bq.selectionStart; render(); const n = document.getElementById("bq"); n.focus(); try { n.setSelectionRange(p, p); } catch (e) {} });
+  const buscar = () => { const c = norm(S.q).replace(/\s+/g, ""), d = S.docs.find(x => norm(x.id) === c); if (d) return abrir(d.id); S.err = c && !filtradas().length ? "No encontramos solicitudes con «" + S.q.trim() + "»." : ""; render(); };
+  document.getElementById("bb").onclick = buscar;
+  bq.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); buscar(); } });
+  bq.addEventListener("input", () => { S.q = bq.value; S.err = ""; const p = bq.selectionStart; render(); const n = document.getElementById("bq"); n.focus(); try { n.setSelectionRange(p, p); } catch (e) {} });
   document.getElementById("exp").onclick = exportar;
   document.getElementById("so").onchange = e => { S.orden = e.target.value; render(); };
   document.getElementById("sg").onchange = e => { S.fg = e.target.value; render(); };
@@ -472,10 +476,18 @@ function vistaPersonas() {
   const apro = P.acc.filter(a => a.estado === "Aprobada").sort((a, b) => ms(b.resueltoAt) - ms(a.resueltoAt));
   const sinIng = P.eq.filter(p => !p.ultimoIngreso).length;
   const fn = f => P.eq.filter(p => Array.isArray(p.funciones) && p.funciones.includes(f)).length;
-  const kp = (n, t, alerta) => `<div class="kpi ${alerta && n ? "alert" : ""}"><b>${n}</b><span>${t}</span></div>`;
+  const kp = (n, t, k, alerta) => `<button type="button" class="kpi ${alerta && n ? "alert" : ""} ${S.pk === k ? "sel" : ""}" data-k="${k}" aria-pressed="${S.pk === k}"><b>${n}</b><span>${t}</span></button>`;
   const mail = S.mailP ? correoAcceso() : null;
   app$.innerHTML = `<div class="stack">
-    <div class="kpis">${kp(P.eq.length, "Personas con acceso")}${kp(P.eq.filter(p => p.rol === "admin").length, "Admin")}${kp(fn("gestor"), "Gestores responsables")}${kp(fn("agenda"), "Encargados de agenda")}${kp(pend.length, "Solicitudes pendientes", 1)}${kp(desc.length, "Descartadas")}${kp(sinIng, "Sin ingreso registrado")}</div>
+    <div class="kpis">${kp(P.eq.length, "Personas con acceso", "todos")}${kp(P.eq.filter(p => p.rol === "admin").length, "Admin", "admin")}${kp(fn("gestor"), "Gestores responsables", "gestor")}${kp(fn("agenda"), "Encargados de agenda", "agenda")}${kp(pend.length, "Solicitudes pendientes", "pend", 1)}${kp(desc.length, "Descartadas", "desc")}${kp(sinIng, "Sin ingreso registrado", "sin")}</div>
+    ${S.pk ? (() => {
+      const T = { todos: "Personas con acceso", admin: "Admin", gestor: "Gestores responsables", agenda: "Encargados de agenda", pend: "Solicitudes pendientes", desc: "Descartadas", sin: "Sin ingreso registrado" };
+      const f2 = x => Array.isArray(x.funciones) ? x.funciones : [];
+      const L = S.pk === "todos" ? P.eq : S.pk === "admin" ? P.eq.filter(p => p.rol === "admin") : S.pk === "gestor" ? P.eq.filter(p => f2(p).includes("gestor")) : S.pk === "agenda" ? P.eq.filter(p => f2(p).includes("agenda")) : S.pk === "sin" ? P.eq.filter(p => !p.ultimoIngreso) : S.pk === "pend" ? pend : desc;
+      const eqL = ["todos", "admin", "gestor", "agenda", "sin"].includes(S.pk);
+      return `<div class="card stack" style="border-color:var(--accent)"><div class="top" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="font-size:16px">${T[S.pk]} (${L.length})</h3><button class="btn sm" id="pkx">Cerrar</button></div>
+      ${L.length ? L.map(x => `<div><b>${esc(x.nombre)}</b><div class="meta">${esc(x.correo)}${eqL ? " · " + (x.rol === "admin" ? "Admin" : "Gestor") + (f2(x).length ? " · " + f2(x).map(z => z === "gestor" ? "gestor responsable" : "encargado de agenda").join(", ") : "") + " · último ingreso: " + (x.ultimoIngreso ? esc(fh(x.ultimoIngreso)) : "sin registro") : " · solicitó: " + esc(fh(x.createdAt))}</div></div>`).join("") : `<p class="note" style="margin:0">Nadie en esta categoría.</p>`}</div>`;
+    })() : ""}
     ${mail ? `<div class="card stack" style="border-color:var(--accent)"><h3 style="font-size:16px">Correo para ${esc(S.mailP.nombre)}</h3>
       <div class="meta">Para: ${esc(S.mailP.correo)}</div>
       <div><label for="pa">Asunto</label><input id="pa" readonly value="${esc(mail.asunto)}"></div>
@@ -497,6 +509,8 @@ function vistaPersonas() {
     </div>
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
   </div>`;
+  app$.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { S.pk = S.pk === b.dataset.k ? "" : b.dataset.k; render(); });
+  const pkx = document.getElementById("pkx"); if (pkx) pkx.onclick = () => { S.pk = ""; render(); };
   app$.querySelectorAll("[data-acc]").forEach(c => { const u = c.dataset.acc;
     c.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => { if (!S.busy) aprobar(u, b.dataset.ap); });
     c.querySelector("[data-ds]").onclick = () => descartar(u); });
