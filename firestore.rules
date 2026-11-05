@@ -1,0 +1,159 @@
+rules_version = '2';
+// Capacitaciones Oferta Ambulatoria HPM — reglas de seguridad de Firestore
+// Principio: los médicos SOLO pueden crear solicitudes (no leer, no editar, no borrar).
+// Solo el equipo (lista en la colección "equipo", ingreso con Google) lee y gestiona.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Identidad ----------
+    function signedIn() { return request.auth != null; }
+
+    // Equipo = su UID de Firebase (único por persona, lo asigna Firebase) figura en /equipo.
+    // Se identifica por UID y NO por correo: así no depende de que el proveedor (Microsoft o Google)
+    // entregue un correo verificado, y no se puede suplantar escribiendo el correo de otra persona.
+    function esEquipo() {
+      return signedIn() && exists(/databases/$(database)/documents/equipo/$(request.auth.uid));
+    }
+    function rolEquipo() {
+      return get(/databases/$(database)/documents/equipo/$(request.auth.uid)).data.rol;
+    }
+    // admin = administra personas, listas y todo lo demás · soporte = gestiona solicitudes · lector = solo mira
+    function esAdmin()  { return esEquipo() && rolEquipo() == 'admin'; }
+    function esEditor() { return esEquipo() && rolEquipo() in ['admin', 'soporte']; }
+    function esUsuarioReal() { return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'; }
+
+    // ---------- Validaciones ----------
+    function txt(d, k, min, max) {
+      return (k in d) && d[k] is string && d[k].size() >= min && d[k].size() <= max;
+    }
+    function txtOpc(d, k, max) {
+      return !(k in d) || (d[k] is string && d[k].size() <= max);
+    }
+
+    // Solicitud enviada por un médico (formulario público)
+    function solicitudMedico(d) {
+      return d.keys().hasOnly([
+          'tipo','estado','servicio','especialidad','equipo','tema','solicitante','contacto',
+          'prioridad','fechaPreferida','horaPreferida','participantes','modalidad','espacio',
+          'lugar','observacion','createdAt','autorUid','origen'
+        ])
+        && d.keys().hasAll([
+          'tipo','estado','servicio','especialidad','tema','solicitante',
+          'fechaPreferida','horaPreferida','createdAt','autorUid','origen'
+        ])
+        && d.tipo == 'Personalizada'
+        && d.estado == 'Solicitada'
+        && d.createdAt == request.time
+        && d.autorUid == request.auth.uid
+        && d.origen in ['google', 'microsoft', 'manual']
+        && txt(d, 'servicio', 3, 120)
+        && txt(d, 'especialidad', 3, 120)
+        && txt(d, 'tema', 3, 300)
+        && txt(d, 'solicitante', 3, 120)
+        && txtOpc(d, 'equipo', 120)
+        && txtOpc(d, 'contacto', 120)
+        && txtOpc(d, 'lugar', 120)
+        && txtOpc(d, 'observacion', 1000)
+        && txtOpc(d, 'participantes', 6)
+        && d.fechaPreferida.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.horaPreferida.matches('^[0-9]{2}:[0-9]{2}$')
+        && (!('prioridad' in d) || d.prioridad in ['Alta', 'Media', 'Baja'])
+        && (!('modalidad' in d) || d.modalidad in ['Presencial', 'Remoto', 'Mixto'])
+        && (!('espacio' in d) || d.espacio in ['Sí', 'No']);
+    }
+
+    function estadoValido(d) {
+      return d.estado in ['Solicitada', 'Por confirmar', 'Aceptada', 'Realizada', 'Rechazada'];
+    }
+
+    // ---------- Solicitudes ----------
+    match /solicitudes/{id} {
+      // Un médico (con cualquier ingreso, incluso anónimo) solo CREA. Editores también (p. ej. generalizadas).
+      allow create: if (signedIn() && solicitudMedico(request.resource.data))
+                    || (esEditor() && estadoValido(request.resource.data));
+      allow read: if esEquipo();
+      // Solo editores cambian estados y asignaciones; no pueden alterar autoría ni fecha de creación.
+      allow update: if esEditor()
+                    && estadoValido(request.resource.data)
+                    && request.resource.data.autorUid == resource.data.autorUid
+                    && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;   // nunca se borra: se marca Rechazada. (El dueño puede borrar desde la consola.)
+    }
+
+    // ---------- Equipo (permisos y funciones) ----------
+    // ID = UID de Firebase. Campos: nombre, correo, rol ('admin'|'soporte'|'lector'),
+    // funciones (lista con 'gestor' y/o 'agenda': de aquí salen las listas de gestores y encargados de agenda).
+    // Lo administra un 'admin' desde la propia aplicación (la primera persona admin se crea en la consola).
+    match /equipo/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;   // cada persona ve su propio rol
+      allow list, create, delete: if esAdmin();
+      // Un admin edita todo; cada persona del equipo solo puede registrar su propio "último ingreso".
+      allow update: if esAdmin()
+                    || (signedIn() && request.auth.uid == uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoIngreso'])
+                        && request.resource.data.ultimoIngreso == request.time);
+    }
+
+    // ---------- Solicitudes de acceso del equipo ----------
+    // Quien ingresa por primera vez con Microsoft/Google (no anónimo) deja aquí su nombre y correo;
+    // un admin lo revisa y, si corresponde, lo agrega a /equipo. No otorga ningún permiso por sí solo.
+    match /accesos/{uid} {
+      allow create: if esUsuarioReal() && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['nombre', 'correo', 'createdAt'])
+                    && request.resource.data.nombre is string && request.resource.data.nombre.size() <= 120
+                    && request.resource.data.correo is string && request.resource.data.correo.size() <= 120
+                    && request.resource.data.createdAt == request.time;
+      allow read, delete: if esAdmin();
+      // Un admin marca la solicitud como Aprobada o Descartada; nunca se borra, queda en el historial.
+      allow update: if esAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'resueltoPor', 'resueltoAt'])
+                    && request.resource.data.estado in ['Aprobada', 'Descartada']
+                    && request.resource.data.resueltoAt == request.time
+                    && (!('resueltoPor' in request.resource.data)
+                        || (request.resource.data.resueltoPor is string && request.resource.data.resueltoPor.size() <= 120));
+    }
+
+    // ---------- Catálogo editable (servicios y especialidades) ----------
+    // Lo necesita el formulario público, por eso se puede LEER sin ingresar; solo un admin lo edita.
+    match /config/catalogo {
+      allow get: if true;
+      allow write: if esAdmin();
+    }
+
+    // ---------- Disponibilidad del equipo ----------
+    // ID = UID de la persona. Cada una escribe la suya (p. ej. al sincronizar Outlook); los editores, cualquiera.
+    match /disponibilidad/{uid} {
+      allow read: if esEquipo();
+      allow write: if esEditor() || (esEquipo() && request.auth.uid == uid);
+    }
+
+    // ---------- Seguimiento público por código ----------
+    // Documento mínimo por solicitud, SIN datos personales. Se lee solo si se conoce el código (no se puede listar).
+    // El médico lo crea una vez (debe ser autor de la solicitud); solo el equipo (editor) lo actualiza.
+    match /seguimiento/{codigo} {
+      allow get: if true;
+      allow list: if false;
+      // También un editor puede crearlo (solicitudes anteriores a este documento).
+      allow create: if (esEditor()
+                    && codigo.matches('^[A-HJ-NP-Z2-9]{8}$')
+                    && request.resource.data.keys().hasOnly(['estado', 'mensaje', 'actualizado'])
+                    && estadoValido(request.resource.data)
+                    && request.resource.data.actualizado == request.time
+                    && (!('mensaje' in request.resource.data)
+                        || (request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 300)))
+                    || (signedIn()
+                    && codigo.matches('^[A-HJ-NP-Z2-9]{8}$')
+                    && request.resource.data.keys().hasOnly(['estado', 'mensaje', 'actualizado'])
+                    && request.resource.data.estado == 'Solicitada'
+                    && request.resource.data.actualizado == request.time
+                    && get(/databases/$(database)/documents/solicitudes/$(codigo)).data.autorUid == request.auth.uid);
+      allow update: if esEditor()
+                    && request.resource.data.keys().hasOnly(['estado', 'mensaje', 'actualizado'])
+                    && estadoValido(request.resource.data)
+                    && request.resource.data.actualizado == request.time
+                    && (!('mensaje' in request.resource.data)
+                        || (request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 300));
+      allow delete: if false;
+    }
+  }
+}
