@@ -50,6 +50,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
 .kpi b{display:block;font-family:"Archivo",sans-serif;font-size:30px;line-height:1.1}.kpi span{font-size:12.5px;color:var(--muted)}
 button.kpi{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}button.kpi.sel{border-color:var(--accent);outline:2px solid var(--accent)}
+.kpis.mini{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.kpis.mini .kpi{padding:8px 10px}.kpis.mini .kpi b{font-size:22px}.kpis.mini .kpi span{font-size:11.5px;line-height:1.2;display:block}.filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.filtros label{margin-bottom:3px;font-size:12px}.filtros select{padding:8px 30px 8px 10px;font-size:15px}.item .top{flex-wrap:wrap;row-gap:4px}button.kpi.on{border-color:var(--accent);outline:2px solid var(--accent)}div.kpi.info{box-shadow:none;background:transparent}
 .kpi.alert b{color:var(--danger)}
 button.bar,button.kpi{font:inherit;color:inherit;cursor:pointer;text-align:left}button.bar{background:none;border:0;width:100%;padding:2px 0;border-radius:6px}button.bar:active,button.bar:hover{background:var(--accent-soft)}button.kpi:active{outline:2px solid var(--accent)}
 .stk button{border:0;padding:0;height:100%;cursor:pointer}.leg button{border:0;background:none;color:inherit;font:inherit;padding:2px 0;cursor:pointer;text-decoration:underline dotted}
@@ -320,21 +321,30 @@ function vistaSinAcceso() {
   const pa = document.getElementById("pa"); if (pa) pa.onclick = () => { if (!S.busy) pedirAcceso(); };
 }
 
+const medianaAb = () => { const a = S.docs.filter(abierta).map(d => dias(d.createdAt)).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; };
+function kpisLista() {
+  const D = S.docs, ab = D.filter(abierta), sinG = ab.filter(d => !d.gestor).length, viejas = ab.filter(d => dias(d.createdAt) > 7).length;
+  const atend = D.filter(d => d.estado === "Aceptada" || d.estado === "Realizada").length;
+  const a = ab.map(d => dias(d.createdAt)).sort((x, y) => x - y), med = a.length ? a[Math.floor(a.length / 2)] : 0;
+  const t = (k, n, txt, al) => `<button type="button" class="kpi ${al && n ? "alert" : ""} ${S.fx === k ? "on" : ""}" data-fxk="${k}" aria-pressed="${S.fx === k}"><b>${n}</b><span>${txt}</span></button>`;
+  return `<div class="kpis mini">${t("abiertas", ab.length, "Abiertas")}${t("singestor", sinG, "Sin gestor", 1)}${t("viejas", viejas, "Más de 7 días", 1)}${t("atendidas", D.length ? Math.round(atend / D.length * 100) + "%" : "0%", "Atendidas")}</div>`;
+}
 function vistaLista() {
   const L = filtradas(), cuenta = e => S.docs.filter(d => e === "Todas" || d.estado === e).length;
   app$.innerHTML = `<div class="stack">
+    ${kpisLista()}
     <div class="card stack">
       <div class="row"><input id="bq" type="search" placeholder="Buscar por código, tema, nombre…" value="${esc(S.q)}" autocomplete="off" autocapitalize="characters"><button class="btn primary" id="bb">Buscar</button><button class="btn" id="exp" title="Descargar todo en CSV">CSV</button></div>
-      <div class="row" style="flex-wrap:wrap">
-        <div style="flex:1 1 160px"><label for="so">Ordenar por</label><select id="so"><option value="antiguas"${S.orden === "antiguas" ? " selected" : ""}>Más antiguas primero</option><option value="recientes"${S.orden === "recientes" ? " selected" : ""}>Más recientes primero</option><option value="preferida"${S.orden === "preferida" ? " selected" : ""}>Fecha preferida (próxima)</option></select></div>
-        <div style="flex:1 1 160px"><label for="sg">Gestor</label><select id="sg"><option value="">Todos</option><option value="__sin"${S.fg === "__sin" ? " selected" : ""}>Sin asignar</option>${S.gestores.map(g => `<option${S.fg === g ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
-        <div style="flex:1 1 160px"><label for="ss">Servicio</label><select id="ss"><option value="">Todos</option>${[...new Set(S.docs.map(d => d.servicio).filter(Boolean))].sort().map(v => `<option${S.fsv === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
+      <div class="filtros">
+        <div><label for="so">Ordenar por</label><select id="so"><option value="antiguas"${S.orden === "antiguas" ? " selected" : ""}>Más antiguas primero</option><option value="recientes"${S.orden === "recientes" ? " selected" : ""}>Más recientes primero</option><option value="preferida"${S.orden === "preferida" ? " selected" : ""}>Fecha preferida (próxima)</option></select></div>
+        <div><label for="sg">Gestor</label><select id="sg"><option value="">Todos</option><option value="__sin"${S.fg === "__sin" ? " selected" : ""}>Sin asignar</option>${S.gestores.map(g => `<option${S.fg === g ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
+        <div><label for="ss">Servicio</label><select id="ss"><option value="">Todos</option>${[...new Set(S.docs.map(d => d.servicio).filter(Boolean))].sort().map(v => `<option${S.fsv === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
       </div>
       <div class="chips" role="group" aria-label="Filtrar por estado">${["Todas", ...ESTADOS].map(e => `<button class="chip" data-f="${esc(e)}" aria-pressed="${S.f === e}">${esc(e)} (${cuenta(e)})</button>`).join("")}</div>
     </div>
-    ${S.fx ? `<div class="msg ok" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0"><span>Mostrando: <b>${esc(S.fx.startsWith("edad:") ? "Abiertas con " + (S.fx.split(":")[2] > 9999 ? "más de " + S.fx.split(":")[1] : S.fx.split(":")[1] + " a " + S.fx.split(":")[2]) + " días de espera" : FX_TXT[S.fx] || "")}</b></span><button class="btn sm" id="qfx">Quitar filtro</button></div>` : ""}
+    ${S.fx.startsWith("edad:") ? `<div class="msg ok" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0"><span>Mostrando: <b>${esc(S.fx.startsWith("edad:") ? "Abiertas con " + (S.fx.split(":")[2] > 9999 ? "más de " + S.fx.split(":")[1] : S.fx.split(":")[1] + " a " + S.fx.split(":")[2]) + " días de espera" : FX_TXT[S.fx] || "")}</b></span><button class="btn sm" id="qfx">Quitar filtro</button></div>` : ""}
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
-    <div class="cnt">${S.listo ? L.length + " de " + S.docs.length + " solicitudes" : "Cargando…"}</div>
+    <div class="cnt">${S.listo ? L.length + " de " + S.docs.length + " solicitudes · espera típica de lo abierto: " + medianaAb() + " días" : "Cargando…"}</div>
     ${L.map(d => `<button class="card item" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}</span><span class="enviada"><b>${esc(corta(d.createdAt))}</b> · ${hace(d.createdAt)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)}${d.gestor ? " · Gestor: " + esc(d.gestor) : " · Sin gestor"}</div></button>`).join("")}
     ${S.listo && !L.length ? `<div class="card note">No hay solicitudes con estos filtros.</div>` : ""}
   </div>`;
@@ -344,6 +354,7 @@ function vistaLista() {
   bq.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); buscar(); } });
   bq.addEventListener("input", () => { S.q = bq.value; S.err = ""; const p = bq.selectionStart; render(); const n = document.getElementById("bq"); n.focus(); try { n.setSelectionRange(p, p); } catch (e) {} });
   document.getElementById("exp").onclick = exportar;
+  app$.querySelectorAll("[data-fxk]").forEach(b => b.onclick = () => { S.fx = S.fx === b.dataset.fxk ? "" : b.dataset.fxk; render(); });
   const qfx = document.getElementById("qfx"); if (qfx) qfx.onclick = () => { S.fx = ""; render(); };
   document.getElementById("so").onchange = e => { S.orden = e.target.value; render(); };
   document.getElementById("sg").onchange = e => { S.fg = e.target.value; render(); };
@@ -473,13 +484,6 @@ function vistaPanel() {
   const delDia = S.dia ? (porDia[S.dia] || []).sort((a, b) => (a.horaPreferida || "").localeCompare(b.horaPreferida || "")) : [];
   const mesTxt = S.mes.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
   app$.innerHTML = `<div class="stack">
-    <div class="kpis">
-      <button type="button" class="kpi" data-go="kpi:abiertas"><b>${ab.length}</b><span>Abiertas (por atender)</span></button>
-      <button type="button" class="kpi ${sinG ? "alert" : ""}" data-go="kpi:singestor"><b>${sinG}</b><span>Sin gestor asignado</span></button>
-      <button type="button" class="kpi ${viejas ? "alert" : ""}" data-go="kpi:viejas"><b>${viejas}</b><span>Esperan más de 7 días</span></button>
-      <button type="button" class="kpi" data-go="kpi:abiertas"><b>${med}</b><span>Días de espera (mediana)</span></button>
-      <button type="button" class="kpi" data-go="kpi:atendidas"><b>${N ? Math.round(atend / N * 100) : 0}%</b><span>Atendidas (aceptada o realizada)</span></button>
-    </div>
     <div class="card"><h3 style="font-size:16px">Antigüedad de lo abierto</h3><p class="note" style="margin:2px 0 8px">Cuánto llevan esperando las solicitudes que aún no se resuelven.</p>${barras(cub, Math.max(1, ...cub.map(x => x[1])), "var(--s-sol)", "edad")}</div>
     <div class="card"><h3 style="font-size:16px">Estados</h3>
       <div class="stk" role="group" aria-label="Distribución por estado">${ESTADOS.map(e => cnt(e) ? `<button type="button" data-go="est:${e}" style="width:${cnt(e) / N * 100}%;background:${COLOR[e]}" title="${e}: ${cnt(e)}" aria-label="${e}: ${cnt(e)}. Ver en la lista"></button>` : "").join("")}</div>
