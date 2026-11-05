@@ -54,6 +54,10 @@ button.kpi{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}
 .kpi.alert b{color:var(--danger)}
 button.bar,button.kpi{font:inherit;color:inherit;cursor:pointer;text-align:left}button.bar{background:none;border:0;width:100%;padding:2px 0;border-radius:6px}button.bar:active,button.bar:hover{background:var(--accent-soft)}button.kpi:active{outline:2px solid var(--accent)}
 .stk button{border:0;padding:0;height:100%;cursor:pointer}.leg button{border:0;background:none;color:inherit;font:inherit;padding:2px 0;cursor:pointer;text-decoration:underline dotted}
+.itemw{padding:0}.itemw .itembtn{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:16px 16px 10px;cursor:pointer;border-radius:var(--r)}
+.itemw .itembtn .top{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;row-gap:4px}
+.itemw .asig{display:flex;align-items:center;gap:8px;padding:0 16px 14px}.itemw .asig label{margin:0;white-space:nowrap}.itemw .asig select{padding:7px 30px 7px 10px;font-size:15px}
+.nueva{font-size:11px;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:1px 8px;margin-left:6px;letter-spacing:.03em}
 .go{font-size:12px;color:var(--accent);margin:2px 0 0}
 .bar{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:8px;align-items:center;font-size:13.5px;margin:6px 0}
 .bar .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar .t{height:14px;background:var(--accent-soft);border-radius:7px;overflow:hidden}.bar .t i{display:block;height:100%;border-radius:7px;background:var(--accent)}
@@ -91,7 +95,7 @@ const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
 auth.languageCode = "es";
-const S = { fx: "", pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const S = { vistas: null, fx: "", pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -203,7 +207,7 @@ async function recuperar(correo) {
 
 onAuthStateChanged(auth, async u => {
   if (S.unsub) { S.unsub(); S.unsub = null; }
-  S.user = u; S.perfil = null; S.docs = []; S.view = "list"; S.sel = null; S.listo = false; S.err = "";
+  S.user = u; S.perfil = null; S.docs = []; S.vistas = null; S.view = "list"; S.sel = null; S.listo = false; S.err = "";
   if (u) {
     try { const s = await getDoc(doc(db, "equipo", u.uid)); S.perfil = s.exists() ? s.data() : null; } catch (e) { S.perfil = null; }
     if (S.perfil) { try { await updateDoc(doc(db, "equipo", u.uid), { ultimoIngreso: serverTimestamp() }); } catch (e) {} }
@@ -218,7 +222,7 @@ onAuthStateChanged(auth, async u => {
     }
     if (S.perfil) {
       S.unsub = onSnapshot(query(collection(db, "solicitudes"), orderBy("createdAt", "desc"), limit(300)),
-        snap => { S.docs = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.listo = true; if (S.view === "list" || S.view === "panel") render(); },
+        snap => { S.docs = snap.docs.map(d => ({ id: d.id, ...d.data() })); iniciarVistas(); S.listo = true; if (S.view === "list" || S.view === "panel") render(); },
         e => { S.err = "No se pudieron cargar las solicitudes (" + ((e && e.code) || "error") + ")."; S.listo = true; render(); });
     }
   }
@@ -322,6 +326,22 @@ function vistaSinAcceso() {
 }
 
 const medianaAb = () => { const a = S.docs.filter(abierta).map(d => dias(d.createdAt)).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; };
+const nNuevas = () => S.docs.filter(esNueva).length;
+async function asignar(id, g) {
+  S.err = "";
+  try { await updateDoc(doc(db, "solicitudes", id), { gestor: g, updatedAt: serverTimestamp(), updatedBy: S.user.uid }); }
+  catch (e) { S.err = "No se pudo asignar (" + ((e && e.code) || "error") + ")."; render(); }
+}
+const kVistas = () => "vistas:" + (S.user ? S.user.uid : "");
+function guardarVistas() { try { localStorage.setItem(kVistas(), JSON.stringify([...S.vistas])); } catch (e) {} }
+function iniciarVistas() {
+  if (S.vistas) return;
+  let a = null; try { a = JSON.parse(localStorage.getItem(kVistas())); } catch (e) {}
+  if (Array.isArray(a)) S.vistas = new Set(a);
+  else { S.vistas = new Set(S.docs.map(d => d.id)); guardarVistas(); }
+}
+const esNueva = d => !!S.vistas && !S.vistas.has(d.id);
+function marcarVista(id) { if (S.vistas && !S.vistas.has(id)) { S.vistas.add(id); guardarVistas(); } }
 function kpisLista() {
   const D = S.docs, ab = D.filter(abierta), sinG = ab.filter(d => !d.gestor).length, viejas = ab.filter(d => dias(d.createdAt) > 7).length;
   const atend = D.filter(d => d.estado === "Aceptada" || d.estado === "Realizada").length;
@@ -330,6 +350,7 @@ function kpisLista() {
   return `<div class="kpis mini">${t("abiertas", ab.length, "Abiertas")}${t("singestor", sinG, "Sin gestor", 1)}${t("viejas", viejas, "Más de 7 días", 1)}${t("atendidas", D.length ? Math.round(atend / D.length * 100) + "%" : "0%", "Atendidas")}</div>`;
 }
 function vistaLista() {
+  if (S.fx === "nuevas" && !nNuevas()) S.fx = "";
   const L = filtradas(), cuenta = e => S.docs.filter(d => e === "Todas" || d.estado === e).length;
   app$.innerHTML = `<div class="stack">
     ${kpisLista()}
@@ -340,12 +361,12 @@ function vistaLista() {
         <div><label for="sg">Gestor</label><select id="sg"><option value="">Todos</option><option value="__sin"${S.fg === "__sin" ? " selected" : ""}>Sin asignar</option>${S.gestores.map(g => `<option${S.fg === g ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
         <div><label for="ss">Servicio</label><select id="ss"><option value="">Todos</option>${[...new Set(S.docs.map(d => d.servicio).filter(Boolean))].sort().map(v => `<option${S.fsv === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
       </div>
-      <div class="chips" role="group" aria-label="Filtrar por estado">${["Todas", ...ESTADOS].map(e => `<button class="chip" data-f="${esc(e)}" aria-pressed="${S.f === e}">${esc(e)} (${cuenta(e)})</button>`).join("")}</div>
+      <div class="chips" role="group" aria-label="Filtrar por estado">${nNuevas() || S.fx === "nuevas" ? `<button class="chip" data-fxn="1" aria-pressed="${S.fx === "nuevas"}">Nuevas (${nNuevas()})</button>` : ""}${["Todas", ...ESTADOS].map(e => `<button class="chip" data-f="${esc(e)}" aria-pressed="${S.f === e}">${esc(e)} (${cuenta(e)})</button>`).join("")}</div>
     </div>
     ${S.fx.startsWith("edad:") ? `<div class="msg ok" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0"><span>Mostrando: <b>${esc(S.fx.startsWith("edad:") ? "Abiertas con " + (S.fx.split(":")[2] > 9999 ? "más de " + S.fx.split(":")[1] : S.fx.split(":")[1] + " a " + S.fx.split(":")[2]) + " días de espera" : FX_TXT[S.fx] || "")}</b></span><button class="btn sm" id="qfx">Quitar filtro</button></div>` : ""}
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
-    <div class="cnt">${S.listo ? L.length + " de " + S.docs.length + " solicitudes · espera típica de lo abierto: " + medianaAb() + " días" : "Cargando…"}</div>
-    ${L.map(d => `<button class="card item" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}</span><span class="enviada"><b>${esc(corta(d.createdAt))}</b> · ${hace(d.createdAt)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)}${d.gestor ? " · Gestor: " + esc(d.gestor) : " · Sin gestor"}</div></button>`).join("")}
+    <div class="cnt">${nNuevas() ? `<button class="btn sm" id="mvt" style="margin-right:8px">Marcar todas como vistas</button>` : ""}${S.listo ? L.length + " de " + S.docs.length + " solicitudes · espera típica de lo abierto: " + medianaAb() + " días" : "Cargando…"}</div>
+    ${L.map(d => `<div class="card itemw"><button class="itembtn" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}${esNueva(d) ? `<span class="nueva">Nueva</span>` : ""}</span><span class="enviada"><b>${esc(corta(d.createdAt))}</b> · ${hace(d.createdAt)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)}</div></button>${puedeEditar() ? `<div class="asig"><label for="g-${esc(d.id)}">Gestor</label><select id="g-${esc(d.id)}" data-asig="${esc(d.id)}" aria-label="Asignar gestor a ${esc(d.id)}"><option value="">Sin asignar</option>${[...new Set([...S.gestores, ...(d.gestor ? [d.gestor] : [])])].map(g => `<option${g === d.gestor ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>` : `<div class="asig meta">Gestor: ${esc(d.gestor || "sin asignar")}</div>`}</div>`).join("")}
     ${S.listo && !L.length ? `<div class="card note">No hay solicitudes con estos filtros.</div>` : ""}
   </div>`;
   const bq = document.getElementById("bq");
@@ -360,6 +381,9 @@ function vistaLista() {
   document.getElementById("sg").onchange = e => { S.fg = e.target.value; render(); };
   document.getElementById("ss").onchange = e => { S.fsv = e.target.value; render(); };
   app$.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.f = b.dataset.f; render(); });
+  const fxn = app$.querySelector("[data-fxn]"); if (fxn) fxn.onclick = () => { S.fx = S.fx === "nuevas" ? "" : "nuevas"; render(); };
+  app$.querySelectorAll("[data-asig]").forEach(sel => sel.onchange = () => asignar(sel.dataset.asig, sel.value));
+  const mvt = document.getElementById("mvt"); if (mvt) mvt.onclick = () => { S.docs.forEach(d => S.vistas.add(d.id)); guardarVistas(); S.fx = S.fx === "nuevas" ? "" : S.fx; render(); };
   app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
 }
 
@@ -460,6 +484,7 @@ const fxOk = d => {
   if (S.fx === "abiertas") return abierta2;
   if (S.fx === "singestor") return abierta2 && !d.gestor;
   if (S.fx === "viejas") return abierta2 && x > 7;
+  if (S.fx === "nuevas") return esNueva(d);
   if (S.fx === "atendidas") return d.estado === "Aceptada" || d.estado === "Realizada";
   if (S.fx.startsWith("edad:")) { const [, a, b] = S.fx.split(":"); return abierta2 && x >= +a && x <= +b; }
   return true;
@@ -503,7 +528,7 @@ function vistaPanel() {
   app$.querySelectorAll("[data-dia]").forEach(b => b.onclick = () => { S.dia = S.dia === b.dataset.dia ? "" : b.dataset.dia; render(); });
   app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
 }
-function abrir(id) { S.vuelta = S.view === "panel" ? "panel" : "list"; S.sel = S.docs.find(d => d.id === id); S.corr = { tpl: PLANTILLA_POR_ESTADO[S.sel.estado] || "recibida", fecha: "", nota: "", cuerpo: "" }; S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); }
+function abrir(id) { marcarVista(id); S.vuelta = S.view === "panel" ? "panel" : "list"; S.sel = S.docs.find(d => d.id === id); S.corr = { tpl: PLANTILLA_POR_ESTADO[S.sel.estado] || "recibida", fecha: "", nota: "", cuerpo: "" }; S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); }
 const pendientes = () => { const ids = new Set(S.pers.eq.map(p => p.uid)); return S.pers.acc.filter(a => (!a.estado || a.estado === "Pendiente") && !ids.has(a.uid)); };
 const fh = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"; } catch (e) { return "—"; } };
 function vistaPersonas() {
