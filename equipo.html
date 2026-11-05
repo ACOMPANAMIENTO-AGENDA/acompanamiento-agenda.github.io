@@ -7,6 +7,7 @@
 <title>Equipo · Solicitudes de apoyo HPM</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&display=swap">
 <style>
+::placeholder{color:var(--faint);opacity:1}
 :root{--bg:#f4f6fb;--surface:#fff;--line:#dfe3ec;--fg:#1a2230;--muted:#5b6678;--faint:#8a93a4;--accent:#0102AF;--accent-soft:#e6e8fb;--danger:#c0392b;--ok:#2E7D32;--ok-soft:#e1f0e2;--warn-soft:#fdf1dc;--r:12px;--r-sm:8px;--shadow:0 1px 2px rgba(20,30,60,.06),0 6px 18px rgba(20,30,60,.07);
 --s-sol:#C77700;--s-con:#A12B7E;--s-ace:#2E7D32;--s-rea:#2563c4;--s-rec:#8a93a4;color-scheme:light}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--surface:#161c2b;--line:#2b344a;--fg:#e7ebf4;--muted:#9aa5ba;--faint:#6c7689;--accent:#8b93ff;--accent-soft:#1d2550;--danger:#ff8a7a;--ok:#5bbf63;--ok-soft:#173222;--warn-soft:#3a2d12;--s-sol:#f0a73a;--s-con:#e070b8;--s-ace:#5bbf63;--s-rea:#6fa0ff;--s-rec:#9aa5ba;color-scheme:dark}}
@@ -88,7 +89,7 @@ const S = { corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n:
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
 const ERRS = {
-  "auth/email-already-in-use": "Ese correo ya tiene cuenta. Vuelve e ingresa, o usa «Olvidé mi contraseña».", "auth/weak-password": "La contraseña es muy débil: usa al menos 8 caracteres.",
+  "auth/email-already-in-use": "Ese correo ya tiene cuenta. Vuelve e ingresa, o usa «Olvidé mi contraseña».", "auth/weak-password": "La contraseña es muy corta: usa al menos 6 caracteres.",
   "auth/invalid-credential": "Correo o contraseña incorrectos.", "auth/wrong-password": "Correo o contraseña incorrectos.",
   "auth/user-not-found": "Correo o contraseña incorrectos.", "auth/invalid-email": "El correo no es válido.",
   "auth/too-many-requests": "Demasiados intentos. Espere unos minutos o restablezca su contraseña.",
@@ -103,12 +104,13 @@ async function ingresar(correo, clave) {
   try { await signInWithEmailAndPassword(auth, correo.trim(), clave); } catch (e) { S.err = errAuth(e); }
   S.busy = false; render();
 }
+const limpiaNombre = v => String(v || "").toUpperCase().normalize("NFD").replace(/N\u0303/g, "\u00D1").replace(/[\u0300-\u036f]/g, "").normalize("NFC").replace(/\s{2,}/g, " ");
 async function registrar(nombre, correo, clave) {
   S.err = ""; S.info = "";
-  nombre = nombre.trim(); correo = correo.trim(); S.rf = { n: nombre, e: correo };
+  nombre = limpiaNombre(nombre).trim(); correo = correo.trim().toLowerCase(); S.rf = { n: nombre, e: correo };
   if (nombre.length < 3) { S.err = "Escribe tu nombre completo."; render(); return; }
   if (!/^\S+@\S+\.\S+$/.test(correo)) { S.err = "El correo no es válido."; render(); return; }
-  if (clave.length < 8) { S.err = "La contraseña debe tener al menos 8 caracteres."; render(); return; }
+  if (clave.length < 6) { S.err = "La contraseña debe tener al menos 6 caracteres."; render(); return; }
   S.busy = true; render();
   try {
     const c = await createUserWithEmailAndPassword(auth, correo, clave);
@@ -233,15 +235,17 @@ function vistaLogin() {
       <h2>Crear cuenta del equipo</h2>
       <p class="note" style="margin:0">Usa tu correo institucional. Un administrador revisará tu solicitud y te dará acceso.</p>
       <form id="rf" class="stack" novalidate>
-        <div><label for="rn">Nombre completo</label><input id="rn" autocomplete="name" maxlength="120" value="${esc(S.rf.n)}"></div>
-        <div><label for="re">Correo</label><input id="re" type="email" autocomplete="username" inputmode="email" autocapitalize="off" maxlength="120" value="${esc(S.rf.e)}"></div>
-        <div><label for="rp">Contraseña (mínimo 8 caracteres)</label><input id="rp" type="password" autocomplete="new-password"></div>
+        <div><label for="rn">Nombre completo (mayúsculas, sin tildes)</label><input id="rn" autocomplete="name" maxlength="120" placeholder="Ej.: JUAN PEREZ GONZALEZ" autocapitalize="characters" value="${esc(S.rf.n)}"></div>
+        <div><label for="re">Correo</label><input id="re" type="email" autocomplete="username" inputmode="email" autocapitalize="off" maxlength="120" placeholder="Ej.: nombre.apellido@ssdr.gob.cl" value="${esc(S.rf.e)}"></div>
+        <div><label for="rp">Contraseña (mínimo 6 caracteres)</label><input id="rp" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres"></div>
         <button class="btn primary block" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "Enviando…" : "Crear cuenta y pedir acceso"}</button>
         <button class="btn block" type="button" id="vl">Ya tengo cuenta</button>
       </form>
       ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
     </div>`;
     document.getElementById("rf").addEventListener("submit", e => { e.preventDefault(); if (!S.busy) registrar(document.getElementById("rn").value, document.getElementById("re").value, document.getElementById("rp").value); });
+    const rn = document.getElementById("rn");
+    rn.addEventListener("input", () => { const p = rn.selectionStart, v = limpiaNombre(rn.value); if (v !== rn.value) { rn.value = v; try { rn.setSelectionRange(p, p); } catch (e) {} } });
     document.getElementById("vl").onclick = () => { S.reg = false; S.err = ""; render(); };
     return;
   }
@@ -249,7 +253,7 @@ function vistaLogin() {
     <h2>Ingreso del equipo</h2>
     <p class="note" style="margin:0">Ingresa con tu correo y contraseña.</p>
     <form id="lf" class="stack" novalidate>
-      <div><label for="em">Correo</label><input id="em" type="email" autocomplete="username" inputmode="email" autocapitalize="off"></div>
+      <div><label for="em">Correo</label><input id="em" type="email" autocomplete="username" inputmode="email" autocapitalize="off" placeholder="Ej.: nombre.apellido@ssdr.gob.cl"></div>
       <div><label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password"></div>
       <button class="btn primary block" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "Ingresando…" : "Ingresar"}</button>
       <button class="btn block" type="button" id="rec">Olvidé mi contraseña</button>
