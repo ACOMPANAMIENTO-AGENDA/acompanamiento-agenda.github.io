@@ -207,7 +207,8 @@ function bindSeg() {
   b.onclick = () => { S.seg.q = i.value; consultar(); };
 }
 
-function opcs(arr, sel, vacio) { return `<option value="">${esc(vacio)}</option>` + arr.map(x => `<option value="${esc(x)}"${x === sel ? " selected" : ""}>${esc(x)}</option>`).join(""); }
+const esAZ = (x, y) => { const o = v => /^OTR[OA]S?\b/i.test(v) ? 1 : 0; return o(x) - o(y) || x.localeCompare(y, "es", { sensitivity: "base" }); };
+function opcs(arr, sel, vacio) { return `<option value="">${esc(vacio)}</option>` + [...arr].sort(esAZ).map(x => `<option value="${esc(x)}"${x === sel ? " selected" : ""}>${esc(x)}</option>`).join(""); }
 
 function render() {
   if (!fb) { app$.innerHTML = `<div class="card"><h2>Falta configurar</h2><p class="lead">Abra <code>config.js</code> y pegue los datos de Firebase (ver PASOS.md).</p></div>`; return; }

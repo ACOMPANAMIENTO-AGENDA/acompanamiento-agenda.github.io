@@ -95,7 +95,8 @@ const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
 auth.languageCode = "es";
-const S = { vistas: null, fx: "", pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const az = (x, y) => String(x).localeCompare(String(y), "es", { sensitivity: "base" });
+const S = { vistas: null, fx: "", pk: "", mailP: null, corr: { tpl: "recibida", fecha: "", nota: "", cuerpo: "" }, rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice().sort((x, y) => String(x).localeCompare(String(y), "es", { sensitivity: "base" })), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
@@ -156,7 +157,7 @@ async function cargarPersonas() {
 }
 function refrescarGestores() {
   const extra = S.pers.eq.filter(p => Array.isArray(p.funciones) && p.funciones.includes("gestor") && p.nombre).map(p => p.nombre);
-  S.gestores = [...new Set([...GESTORES_BASE, ...extra])];
+  S.gestores = [...new Set([...GESTORES_BASE, ...extra])].sort(az);
 }
 const ROL_TXT = r => r === "admin" ? "Administrador" : "Gestor";
 function abrirCorreoAcceso(a, tipo, rol) { S.mailP = { uid: a.uid, tipo, nombre: a.nombre, correo: a.correo, rol: rol || "soporte" }; }
@@ -215,7 +216,7 @@ onAuthStateChanged(auth, async u => {
       try {
         const q = await getDocs(collection(db, "equipo")); const extra = [];
         q.forEach(x => { const d = x.data(); if (Array.isArray(d.funciones) && d.funciones.includes("gestor") && d.nombre) extra.push(d.nombre); });
-        S.gestores = [...new Set([...GESTORES_BASE, ...extra])];
+        S.gestores = [...new Set([...GESTORES_BASE, ...extra])].sort(az);
         S.pers.eq = q.docs.map(d => ({ uid: d.id, ...d.data() }));
         try { const a = await getDocs(collection(db, "accesos")); S.pers.acc = a.docs.map(d => ({ uid: d.id, ...d.data() })); } catch (e2) {}
       } catch (e) {}
@@ -358,15 +359,15 @@ function vistaLista() {
       <div class="row"><input id="bq" type="search" placeholder="Buscar por código, tema, nombre…" value="${esc(S.q)}" autocomplete="off" autocapitalize="characters"><button class="btn primary" id="bb">Buscar</button><button class="btn" id="exp" title="Descargar todo en CSV">CSV</button></div>
       <div class="filtros">
         <div><label for="so">Ordenar por</label><select id="so"><option value="antiguas"${S.orden === "antiguas" ? " selected" : ""}>Más antiguas primero</option><option value="recientes"${S.orden === "recientes" ? " selected" : ""}>Más recientes primero</option><option value="preferida"${S.orden === "preferida" ? " selected" : ""}>Fecha preferida (próxima)</option></select></div>
-        <div><label for="sg">Gestor</label><select id="sg"><option value="">Todos</option><option value="__sin"${S.fg === "__sin" ? " selected" : ""}>Sin asignar</option>${S.gestores.map(g => `<option${S.fg === g ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
-        <div><label for="ss">Servicio</label><select id="ss"><option value="">Todos</option>${[...new Set(S.docs.map(d => d.servicio).filter(Boolean))].sort().map(v => `<option${S.fsv === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
+        <div><label for="sg">Gestor</label><select id="sg"><option value="">Todos</option><option value="__sin"${S.fg === "__sin" ? " selected" : ""}>Sin asignar</option>${[...S.gestores].sort(az).map(g => `<option${S.fg === g ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
+        <div><label for="ss">Servicio</label><select id="ss"><option value="">Todos</option>${[...new Set(S.docs.map(d => d.servicio).filter(Boolean))].sort(az).map(v => `<option${S.fsv === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
       </div>
       <div class="chips" role="group" aria-label="Filtrar por estado">${nNuevas() || S.fx === "nuevas" ? `<button class="chip" data-fxn="1" aria-pressed="${S.fx === "nuevas"}">Nuevas (${nNuevas()})</button>` : ""}${["Todas", ...ESTADOS].map(e => `<button class="chip" data-f="${esc(e)}" aria-pressed="${S.f === e}">${esc(e)} (${cuenta(e)})</button>`).join("")}</div>
     </div>
     ${S.fx.startsWith("edad:") ? `<div class="msg ok" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:0"><span>Mostrando: <b>${esc(S.fx.startsWith("edad:") ? "Abiertas con " + (S.fx.split(":")[2] > 9999 ? "más de " + S.fx.split(":")[1] : S.fx.split(":")[1] + " a " + S.fx.split(":")[2]) + " días de espera" : FX_TXT[S.fx] || "")}</b></span><button class="btn sm" id="qfx">Quitar filtro</button></div>` : ""}
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
     <div class="cnt">${nNuevas() ? `<button class="btn sm" id="mvt" style="margin-right:8px">Marcar todas como vistas</button>` : ""}${S.listo ? L.length + " de " + S.docs.length + " solicitudes · espera típica de lo abierto: " + medianaAb() + " días" : "Cargando…"}</div>
-    ${L.map(d => `<div class="card itemw"><button class="itembtn" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}${esNueva(d) ? `<span class="nueva">Nueva</span>` : ""}</span><span class="enviada"><b>${esc(corta(d.createdAt))}</b> · ${hace(d.createdAt)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)}</div></button>${puedeEditar() ? `<div class="asig"><label for="g-${esc(d.id)}">Gestor</label><select id="g-${esc(d.id)}" data-asig="${esc(d.id)}" aria-label="Asignar gestor a ${esc(d.id)}"><option value="">Sin asignar</option>${[...new Set([...S.gestores, ...(d.gestor ? [d.gestor] : [])])].map(g => `<option${g === d.gestor ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>` : `<div class="asig meta">Gestor: ${esc(d.gestor || "sin asignar")}</div>`}</div>`).join("")}
+    ${L.map(d => `<div class="card itemw"><button class="itembtn" data-id="${esc(d.id)}"><div class="top"><span class="cod">${esc(d.id)}${esNueva(d) ? `<span class="nueva">Nueva</span>` : ""}</span><span class="enviada"><b>${esc(corta(d.createdAt))}</b> · ${hace(d.createdAt)}</span><span class="badge" style="background:${COLOR[d.estado] || "var(--s-rec)"}">${esc(d.estado)}</span></div><div class="tema">${esc(d.tema)}</div><div class="meta">${esc(d.especialidad)} · ${esc(d.solicitante)}</div><div class="meta">Fecha preferida: ${esc(d.fechaPreferida)} ${esc(d.horaPreferida)}</div></button>${puedeEditar() ? `<div class="asig"><label for="g-${esc(d.id)}">Gestor</label><select id="g-${esc(d.id)}" data-asig="${esc(d.id)}" aria-label="Asignar gestor a ${esc(d.id)}"><option value="">Sin asignar</option>${[...new Set([...S.gestores, ...(d.gestor ? [d.gestor] : [])])].sort(az).map(g => `<option${g === d.gestor ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>` : `<div class="asig meta">Gestor: ${esc(d.gestor || "sin asignar")}</div>`}</div>`).join("")}
     ${S.listo && !L.length ? `<div class="card note">No hay solicitudes con estos filtros.</div>` : ""}
   </div>`;
   const bq = document.getElementById("bq");
@@ -435,14 +436,14 @@ function vistaDetalle() {
       <h3 style="font-size:16px">Gestionar</h3>
       <div><label for="fe">Estado</label><select id="fe">${ESTADOS.map(e => `<option${e === f.estado ? " selected" : ""}>${e}</option>`).join("")}</select></div>
       <div><label for="fm">Mensaje para el médico (lo ve al consultar su código)</label><textarea id="fm" maxlength="300" placeholder="Ej.: Le proponemos el jueves 12 a las 10:00. Confirme por correo.">${esc(f.mensaje)}</textarea></div>
-      <div><label for="fg">Gestor responsable</label><select id="fg"><option value="">Sin asignar</option>${[...new Set([...S.gestores, ...(f.gestor ? [f.gestor] : [])])].map(g => `<option${g === f.gestor ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
+      <div><label for="fg">Gestor responsable</label><select id="fg"><option value="">Sin asignar</option>${[...new Set([...S.gestores, ...(f.gestor ? [f.gestor] : [])])].sort(az).map(g => `<option${g === f.gestor ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>
       <div><label for="fn">Nota interna (el médico no la ve)</label><textarea id="fn" maxlength="500">${esc(f.notaInterna)}</textarea></div>
       <button class="btn primary block" id="gd" ${S.busy ? "disabled" : ""}>${S.busy ? "Guardando…" : "Guardar"}</button>
     </div>
     <div class="card stack">
       <h3 style="font-size:16px">Correo al médico</h3>
       <p class="note" style="margin:0">Plantillas para copiar o abrir en tu correo. El código va en el asunto, así los mensajes se pueden buscar. Al cambiar la plantilla o los datos, el texto se regenera.</p>
-      <div><label for="ct">Plantilla</label><select id="ct">${Object.entries(PLANTILLAS).map(([k, t]) => `<option value="${k}"${k === S.corr.tpl ? " selected" : ""}>${esc(t.n)}</option>`).join("")}</select></div>
+      <div><label for="ct">Plantilla</label><select id="ct">${Object.entries(PLANTILLAS).sort((a, b) => az(a[1].n, b[1].n)).map(([k, t]) => `<option value="${k}"${k === S.corr.tpl ? " selected" : ""}>${esc(t.n)}</option>`).join("")}</select></div>
       <div><label for="cf">Fecha y hora propuestas (si corresponde)</label><input id="cf" maxlength="120" placeholder="Ej.: jueves 12 de noviembre, 10:00" value="${esc(S.corr.fecha)}" autocomplete="off"></div>
       <div><label for="cn">Dato que falta, motivo o alternativa (si corresponde)</label><input id="cn" maxlength="200" value="${esc(S.corr.nota)}" autocomplete="off"></div>
       <div><label for="ca">Asunto</label><input id="ca" readonly></div>
