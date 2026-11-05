@@ -73,8 +73,8 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:1
 <script type="module">
 import { firebaseConfig } from "./config.js?v=2";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { initializeFirestore, doc, getDoc, getDocs, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const ESTADOS = ["Solicitada", "Por confirmar", "Aceptada", "Realizada", "Rechazada"];
 const COLOR = { "Solicitada": "var(--s-sol)", "Por confirmar": "var(--s-con)", "Aceptada": "var(--s-ace)", "Realizada": "var(--s-rea)", "Rechazada": "var(--s-rec)" };
@@ -83,11 +83,12 @@ const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 const app$ = document.getElementById("app"), hdr$ = document.getElementById("hdr");
 const fb = initializeApp(firebaseConfig), auth = getAuth(fb), db = initializeFirestore(fb, { experimentalAutoDetectLongPolling: true });
 const GESTORES_BASE = ["Katherine Valverde","Luis Gallardo","Andrea Leiva","Paulo Muñoz","Enrique Pizarro","Álan Bazán"];
-const S = { mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
+const S = { rf: { n: "", e: "" }, reg: false, accSent: false, pers: { acc: [], eq: [], ok: false }, mes: new Date(), dia: "", orden: "antiguas", fg: "", fsv: "", gestores: GESTORES_BASE.slice(), user: null, perfil: null, listo: false, view: "list", sel: null, docs: [], f: "Todas", q: "", err: "", info: "", busy: false, form: {}, unsub: null };
 
 const fecha = t => { try { const d = t && t.toDate ? t.toDate() : null; return d ? d.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (e) { return ""; } };
 const puedeEditar = () => S.perfil && ["admin", "soporte"].includes(S.perfil.rol);
 const ERRS = {
+  "auth/email-already-in-use": "Ese correo ya tiene cuenta. Vuelve e ingresa, o usa «Olvidé mi contraseña».", "auth/weak-password": "La contraseña es muy débil: usa al menos 8 caracteres.",
   "auth/invalid-credential": "Correo o contraseña incorrectos.", "auth/wrong-password": "Correo o contraseña incorrectos.",
   "auth/user-not-found": "Correo o contraseña incorrectos.", "auth/invalid-email": "El correo no es válido.",
   "auth/too-many-requests": "Demasiados intentos. Espere unos minutos o restablezca su contraseña.",
@@ -102,6 +103,59 @@ async function ingresar(correo, clave) {
   try { await signInWithEmailAndPassword(auth, correo.trim(), clave); } catch (e) { S.err = errAuth(e); }
   S.busy = false; render();
 }
+async function registrar(nombre, correo, clave) {
+  S.err = ""; S.info = "";
+  nombre = nombre.trim(); correo = correo.trim(); S.rf = { n: nombre, e: correo };
+  if (nombre.length < 3) { S.err = "Escribe tu nombre completo."; render(); return; }
+  if (!/^\S+@\S+\.\S+$/.test(correo)) { S.err = "El correo no es válido."; render(); return; }
+  if (clave.length < 8) { S.err = "La contraseña debe tener al menos 8 caracteres."; render(); return; }
+  S.busy = true; render();
+  try {
+    const c = await createUserWithEmailAndPassword(auth, correo, clave);
+    try { await sendEmailVerification(c.user); } catch (e) {}
+    await setDoc(doc(db, "accesos", c.user.uid), { nombre: nombre.slice(0, 120), correo: correo.slice(0, 120), createdAt: serverTimestamp() });
+    S.accSent = true; S.reg = false;
+  } catch (e) { S.err = errAuth(e); }
+  S.busy = false; render();
+}
+async function pedirAcceso() {
+  S.err = ""; S.busy = true; render();
+  try { await setDoc(doc(db, "accesos", S.user.uid), { nombre: (S.user.displayName || S.user.email || "Sin nombre").slice(0, 120), correo: (S.user.email || "").slice(0, 120), createdAt: serverTimestamp() }); S.accSent = true; }
+  catch (e) { S.err = (e && e.code === "permission-denied") ? "Ya habías enviado tu solicitud. Avisa a un administrador." : "No se pudo enviar (" + ((e && e.code) || "error") + ")."; }
+  S.busy = false; render();
+}
+async function cargarPersonas() {
+  S.err = "";
+  try {
+    const [a, e] = await Promise.all([getDocs(collection(db, "accesos")), getDocs(collection(db, "equipo"))]);
+    S.pers.acc = a.docs.map(d => ({ uid: d.id, ...d.data() })).sort((x, y) => (x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : 0) - (y.createdAt && y.createdAt.toMillis ? y.createdAt.toMillis() : 0));
+    S.pers.eq = e.docs.map(d => ({ uid: d.id, ...d.data() })).sort((x, y) => String(x.nombre).localeCompare(String(y.nombre)));
+    S.pers.ok = true; refrescarGestores();
+  } catch (x) { S.err = "No se pudo cargar (" + ((x && x.code) || "error") + ")."; }
+  render();
+}
+function refrescarGestores() {
+  const extra = S.pers.eq.filter(p => Array.isArray(p.funciones) && p.funciones.includes("gestor") && p.nombre).map(p => p.nombre);
+  S.gestores = [...new Set([...GESTORES_BASE, ...extra])];
+}
+async function aprobar(uid, rol) {
+  const a = S.pers.acc.find(x => x.uid === uid); if (!a) return;
+  S.busy = true; S.err = ""; S.info = ""; render();
+  try {
+    await setDoc(doc(db, "equipo", uid), { nombre: a.nombre, correo: a.correo, rol, funciones: ["gestor"] });
+    await deleteDoc(doc(db, "accesos", uid));
+    S.info = a.nombre + " ahora tiene acceso como " + (rol === "admin" ? "Admin" : "Gestor") + ".";
+  } catch (e) { S.err = "No se pudo aprobar (" + ((e && e.code) || "error") + ")."; }
+  S.busy = false; await cargarPersonas();
+}
+async function descartar(uid) { try { await deleteDoc(doc(db, "accesos", uid)); S.info = "Solicitud descartada."; } catch (e) { S.err = "No se pudo descartar (" + ((e && e.code) || "error") + ")."; } await cargarPersonas(); }
+async function guardarPersona(uid, rol, funciones) {
+  S.busy = true; S.err = ""; S.info = ""; render();
+  try { await updateDoc(doc(db, "equipo", uid), { rol, funciones }); S.info = "Cambios guardados."; } catch (e) { S.err = "No se pudo guardar (" + ((e && e.code) || "error") + ")."; }
+  S.busy = false; await cargarPersonas();
+}
+async function quitarPersona(uid) { try { await deleteDoc(doc(db, "equipo", uid)); S.info = "Acceso retirado."; } catch (e) { S.err = "No se pudo quitar (" + ((e && e.code) || "error") + ")."; } await cargarPersonas(); }
+
 async function recuperar(correo) {
   S.err = ""; S.info = "";
   if (!correo.trim()) { S.err = "Escriba su correo y vuelva a pulsar «Olvidé mi contraseña»."; render(); return; }
@@ -119,6 +173,7 @@ onAuthStateChanged(auth, async u => {
         const q = await getDocs(collection(db, "equipo")); const extra = [];
         q.forEach(x => { const d = x.data(); if (Array.isArray(d.funciones) && d.funciones.includes("gestor") && d.nombre) extra.push(d.nombre); });
         S.gestores = [...new Set([...GESTORES_BASE, ...extra])];
+        try { const a = await getDocs(collection(db, "accesos")); S.pers.acc = a.docs.map(d => ({ uid: d.id, ...d.data() })); } catch (e2) {}
       } catch (e) {}
     }
     if (S.perfil) {
@@ -173,14 +228,32 @@ async function guardar() {
 }
 
 function vistaLogin() {
+  if (S.reg) {
+    app$.innerHTML = `<div class="card stack" style="max-width:420px;margin:16px auto 0">
+      <h2>Crear cuenta del equipo</h2>
+      <p class="note" style="margin:0">Usa tu correo institucional. Un administrador revisará tu solicitud y te dará acceso.</p>
+      <form id="rf" class="stack" novalidate>
+        <div><label for="rn">Nombre completo</label><input id="rn" autocomplete="name" maxlength="120" value="${esc(S.rf.n)}"></div>
+        <div><label for="re">Correo</label><input id="re" type="email" autocomplete="username" inputmode="email" autocapitalize="off" maxlength="120" value="${esc(S.rf.e)}"></div>
+        <div><label for="rp">Contraseña (mínimo 8 caracteres)</label><input id="rp" type="password" autocomplete="new-password"></div>
+        <button class="btn primary block" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "Enviando…" : "Crear cuenta y pedir acceso"}</button>
+        <button class="btn block" type="button" id="vl">Ya tengo cuenta</button>
+      </form>
+      ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
+    </div>`;
+    document.getElementById("rf").addEventListener("submit", e => { e.preventDefault(); if (!S.busy) registrar(document.getElementById("rn").value, document.getElementById("re").value, document.getElementById("rp").value); });
+    document.getElementById("vl").onclick = () => { S.reg = false; S.err = ""; render(); };
+    return;
+  }
   app$.innerHTML = `<div class="card stack" style="max-width:420px;margin:16px auto 0">
     <h2>Ingreso del equipo</h2>
-    <p class="note" style="margin:0">Use el correo y la contraseña que le entregó el administrador.</p>
+    <p class="note" style="margin:0">Ingresa con tu correo y contraseña.</p>
     <form id="lf" class="stack" novalidate>
       <div><label for="em">Correo</label><input id="em" type="email" autocomplete="username" inputmode="email" autocapitalize="off"></div>
       <div><label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password"></div>
       <button class="btn primary block" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "Ingresando…" : "Ingresar"}</button>
       <button class="btn block" type="button" id="rec">Olvidé mi contraseña</button>
+      <button class="btn block" type="button" id="cr">Primera vez: crear mi cuenta</button>
     </form>
     ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
     ${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
@@ -188,16 +261,20 @@ function vistaLogin() {
   const em = document.getElementById("em"), pw = document.getElementById("pw");
   document.getElementById("lf").addEventListener("submit", e => { e.preventDefault(); if (!S.busy) ingresar(em.value, pw.value); });
   document.getElementById("rec").onclick = () => recuperar(em.value);
+  document.getElementById("cr").onclick = () => { S.reg = true; S.err = ""; S.info = ""; render(); };
 }
 
 function vistaSinAcceso() {
+  const real = S.user && !S.user.isAnonymous;
   app$.innerHTML = `<div class="card stack" style="max-width:520px;margin:16px auto 0">
-    <h2>Su cuenta aún no tiene acceso</h2>
-    <p style="margin:0">Ingresó como <b>${esc(S.user.email || "")}</b>, pero un administrador todavía no la agregó al equipo. Envíele este identificador:</p>
-    <div class="cod" id="uid" style="font-size:14px;overflow-wrap:anywhere;background:var(--accent-soft);padding:10px;border-radius:8px">${esc(S.user.uid)}</div>
-    <button class="btn" id="cp">Copiar identificador</button>
+    ${S.accSent ? `<h2>Solicitud enviada</h2>
+    <p style="margin:0">Un administrador revisará tu solicitud y te dará acceso. Cuando lo haga, recarga esta página. Ingresaste como <b>${esc(S.user.email || "")}</b>.</p>` : `<h2>Tu cuenta aún no tiene acceso</h2>
+    <p style="margin:0">Ingresaste como <b>${esc(S.user.email || "(sin correo)")}</b>, pero un administrador todavía no te agregó al equipo.</p>
+    ${real ? `<button class="btn primary block" id="pa" ${S.busy ? "disabled" : ""}>Pedir acceso</button>
+    <p class="note" style="margin:0">Si eres del equipo y entraste con una cuenta personal, toca «Salir» y vuelve a ingresar con tu correo institucional.</p>` : ""}`}
+    ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}
   </div>`;
-  document.getElementById("cp").onclick = async e => { try { await navigator.clipboard.writeText(S.user.uid); e.target.textContent = "Copiado"; } catch (x) { const r = document.createRange(); r.selectNodeContents(document.getElementById("uid")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); e.target.textContent = "Selecciónelo y cópielo"; } };
+  const pa = document.getElementById("pa"); if (pa) pa.onclick = () => { if (!S.busy) pedirAcceso(); };
 }
 
 function vistaLista() {
@@ -308,15 +385,42 @@ function vistaPanel() {
   app$.querySelectorAll("[data-id]").forEach(b => b.onclick = () => abrir(b.dataset.id));
 }
 function abrir(id) { S.vuelta = S.view === "panel" ? "panel" : "list"; S.sel = S.docs.find(d => d.id === id); S.form = { estado: S.sel.estado, gestor: S.sel.gestor || "", notaInterna: S.sel.notaInterna || "", mensaje: S.sel.mensajePublico || "" }; S.view = "detail"; S.err = ""; S.info = ""; render(); window.scrollTo(0, 0); }
+function vistaPersonas() {
+  const P = S.pers, yo = S.user.uid;
+  app$.innerHTML = `<div class="stack">
+    <div class="card stack"><h3 style="font-size:16px">Solicitudes de acceso (${P.acc.length})</h3>
+      ${P.acc.length ? P.acc.map(a => `<div class="card stack" data-acc="${esc(a.uid)}"><div><b>${esc(a.nombre)}</b><div class="meta">${esc(a.correo)}</div></div>
+        <div class="row" style="flex-wrap:wrap"><button class="btn sm primary" data-ap="soporte">Aprobar como Gestor</button><button class="btn sm" data-ap="admin">Aprobar como Admin</button><button class="btn sm" data-ds="1">Descartar</button></div></div>`).join("") : `<p class="note" style="margin:0">No hay solicitudes pendientes. Pide a cada persona que entre a esta página y toque «Primera vez: crear mi cuenta».</p>`}
+    </div>
+    <div class="card stack"><h3 style="font-size:16px">Equipo (${P.eq.length})</h3>
+      ${P.eq.map(p => { const f = Array.isArray(p.funciones) ? p.funciones : [], yoMismo = p.uid === yo; return `<div class="card stack" data-eq="${esc(p.uid)}"><div><b>${esc(p.nombre)}</b>${yoMismo ? " (tú)" : ""}<div class="meta">${esc(p.correo)}</div></div>
+        <div><label>Rol</label><select data-rol ${yoMismo ? "disabled" : ""}><option value="admin"${p.rol === "admin" ? " selected" : ""}>Admin</option><option value="soporte"${p.rol === "soporte" ? " selected" : ""}>Gestor</option></select></div>
+        <div class="row" style="flex-wrap:wrap;gap:14px"><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" data-fn="gestor" style="width:auto"${f.includes("gestor") ? " checked" : ""}> Gestor responsable</label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" data-fn="agenda" style="width:auto"${f.includes("agenda") ? " checked" : ""}> Encargado de agenda</label></div>
+        <div class="row"><button class="btn sm primary" data-gp="1" ${S.busy ? "disabled" : ""}>Guardar</button>${yoMismo ? "" : `<button class="btn sm" data-qp="1">Quitar acceso</button>`}</div></div>`; }).join("") || `<p class="note" style="margin:0">Sin personas.</p>`}
+    </div>
+    ${S.err ? `<div class="msg err" role="alert">${esc(S.err)}</div>` : ""}${S.info ? `<div class="msg ok" role="status">${esc(S.info)}</div>` : ""}
+  </div>`;
+  app$.querySelectorAll("[data-acc]").forEach(c => { const u = c.dataset.acc;
+    c.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => { if (!S.busy) aprobar(u, b.dataset.ap); });
+    c.querySelector("[data-ds]").onclick = () => descartar(u); });
+  app$.querySelectorAll("[data-eq]").forEach(c => { const u = c.dataset.eq;
+    c.querySelector("[data-gp]").onclick = () => { if (S.busy) return; guardarPersona(u, c.querySelector("[data-rol]").value, [...c.querySelectorAll("[data-fn]")].filter(x => x.checked).map(x => x.dataset.fn)); };
+    const q = c.querySelector("[data-qp]"); if (q) q.onclick = () => { if (q.dataset.sure) quitarPersona(u); else { q.dataset.sure = "1"; q.textContent = "¿Seguro? Toca otra vez"; } }; });
+}
 function render() {
   const adm = S.perfil && S.perfil.rol === "admin";
-  hdr$.innerHTML = S.user ? `${adm ? `<button class="btn sm" id="pn">${S.view === "panel" ? "Lista" : "Panel"}</button> ` : ""}<button class="btn sm" id="sal">Salir</button>` : "";
-  if (S.user) document.getElementById("sal").onclick = () => signOut(auth);
-  if (adm) document.getElementById("pn").onclick = () => { S.view = S.view === "panel" ? "list" : "panel"; S.err = ""; render(); window.scrollTo(0, 0); };
+  hdr$.innerHTML = S.user ? `<button class="btn sm" id="sal">Salir</button>` : "";
+  if (S.user) document.getElementById("sal").onclick = () => { S.accSent = false; signOut(auth); };
   if (!S.user) return vistaLogin();
   if (!S.listo && !S.perfil) { app$.innerHTML = `<div class="card note">Verificando acceso…</div>`; return; }
   if (!S.perfil) return vistaSinAcceso();
-  S.view === "detail" && S.sel ? vistaDetalle() : S.view === "panel" && adm ? vistaPanel() : vistaLista();
+  if (S.view === "detail" && S.sel) return vistaDetalle();
+  if (S.view === "personas" && adm) vistaPersonas(); else if (S.view === "panel" && adm) vistaPanel(); else vistaLista();
+  if (adm) {
+    const v = S.view === "personas" ? "personas" : S.view === "panel" ? "panel" : "list", n = S.pers.acc.length;
+    app$.insertAdjacentHTML("afterbegin", `<div class="chips" role="tablist" style="margin-bottom:12px">${[["list", "Lista"], ["panel", "Panel"], ["personas", "Personas" + (n ? " (" + n + ")" : "")]].map(([k, t]) => `<button class="chip" role="tab" data-nav="${k}" aria-pressed="${v === k}">${t}</button>`).join("")}</div>`);
+    app$.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { S.view = b.dataset.nav; S.err = ""; S.info = ""; if (S.view === "personas") cargarPersonas(); render(); window.scrollTo(0, 0); });
+  }
 }
 render();
 </script>
